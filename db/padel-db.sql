@@ -9,8 +9,10 @@ CREATE TABLE usuarios (
   nombre VARCHAR(50) NOT NULL,
   apellidos VARCHAR(50) NOT NULL,
   correo VARCHAR(100) NOT NULL,
+  telefono VARCHAR(100) NOT NULL,
   contraseña VARCHAR(255) NOT NULL,
   saldo DECIMAL(10,2) NOT NULL DEFAULT 0,
+  tipo INT,
   PRIMARY KEY (id)
 );
 
