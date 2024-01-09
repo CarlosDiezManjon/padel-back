@@ -1,26 +1,20 @@
-
-
-class UsuarioController{
-    constructor() {
-    }
-  
-    get() {
-      return this.db.any('SELECT * FROM Usuarios');
-    }
-  
-    post() {
-      const { nombre, apellidos, correoElectronico, telefono, password, saldo, tipoUsuario } = this.req.body;
-      return this.db.none('INSERT INTO Usuarios (Nombre, Apellidos, Correo,Telefono, Password,Saldo, Tipo) VALUES ($1, $2, $3, $4, $5, $6)',
-       [nombre, apellidos, correoElectronico, telefono, password, saldo, tipoUsuario]);
-    }
-
-    put(){
-        return "updated"
-    }
-    delete(){
-        return "deleted"
-    }
+const db = require('../config/db');
+exports.getUsers = async (req, res) =>{
+  try {
+    const usuarios = await db.any('SELECT * FROM Usuarios');
+    res.json(usuarios);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener usuarios.' });
   }
-  
-  export default UsuarioController;
-  
+}
+
+exports.getUserByUsername = async (req, res) =>{
+  try {
+    const { username } = req.params;
+    const usuario = await db.one('SELECT * FROM Usuarios WHERE username = $1', [username]);
+    res.json(usuario);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener usuario por nombre de usuario.' });
+  }
+}
+

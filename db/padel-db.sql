@@ -1,68 +1,82 @@
 -- Creación de la base de datos
-CREATE DATABASE padel-db;
+CREATE DATABASE padelDB;
 
 -- Creación de las tablas
-\connect padel-db;
+\connect padelDB;
 
 CREATE TABLE usuarios (
-  id INT NOT NULL AUTO_INCREMENT,
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(25) UNIQUE NOT NULL,
   nombre VARCHAR(50) NOT NULL,
   apellidos VARCHAR(50) NOT NULL,
-  correo VARCHAR(100) NOT NULL,
+  correo VARCHAR(100) UNIQUE NOT NULL,
   telefono VARCHAR(100) NOT NULL,
   contraseña VARCHAR(255) NOT NULL,
   saldo DECIMAL(10,2) NOT NULL DEFAULT 0,
   tipo INT,
-  PRIMARY KEY (id)
+  fecha_alta TIMESTAMP NOT NULL,
+  fecha_baja TIMESTAMP
 );
 
 CREATE TABLE pistas (
-  id INT NOT NULL AUTO_INCREMENT,
-  nombre VARCHAR(50) NOT NULL,
-  ubicación VARCHAR(50) NOT NULL,
+  id SERIAL PRIMARY KEY,
+  nombre VARCHAR(50) UNIQUE NOT NULL,
+  ubicacion VARCHAR(50) NOT NULL, -- Cambiado a "ubicacion" para evitar conflictos con palabras clave de PostgreSQL
   dimensiones VARCHAR(50) NOT NULL,
   precio DECIMAL(10,2) NOT NULL,
-  PRIMARY KEY (id)
+  duracion_reserva DECIMAL(1,1) NOT NULL
 );
 
 CREATE TABLE reservas (
-  id INT NOT NULL AUTO_INCREMENT,
+  id SERIAL PRIMARY KEY,
   usuario_id INT NOT NULL,
   pista_id INT NOT NULL,
   fecha DATE NOT NULL,
   hora TIME NOT NULL,
   importe DECIMAL(10,2) NOT NULL,
   estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',
-  PRIMARY KEY (id),
   FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
   FOREIGN KEY (pista_id) REFERENCES pistas (id)
 );
 
 CREATE TABLE pagos (
-  id INT NOT NULL AUTO_INCREMENT,
+  id SERIAL PRIMARY KEY,
   reserva_id INT NOT NULL,
   importe DECIMAL(10,2) NOT NULL,
-  método_pago VARCHAR(20) NOT NULL,
-  fecha DATE NOT NULL,
-  PRIMARY KEY (id),
+  metodo_pago VARCHAR(20) NOT NULL, -- Cambiado a "metodo_pago" para evitar conflictos con palabras clave de PostgreSQL
+  fecha TIMESTAMP NOT NULL,
   FOREIGN KEY (reserva_id) REFERENCES reservas (id)
 );
 
--- Inicialización de datos
-INSERT INTO usuarios (nombre, apellidos, correo, contraseña, saldo)
-VALUES ('Juan', 'Pérez', 'juan.perez@gmail.com', '123456', 100);
 
-INSERT INTO usuarios (nombre, apellidos, correo, contraseña, saldo)
-VALUES ('María', 'García', 'maria.garcia@gmail.com', '654321', 200);
+-- Registros de ejemplo para la tabla usuarios
+INSERT INTO usuarios (username, nombre, apellidos, correo, telefono, contraseña, tipo, fecha_alta)
+VALUES
+  ('usuario1', 'Juan', 'Pérez', 'juan@example.com', '123456789', 'contraseña1', 1, '2024-01-01 10:00:00'),
+  ('usuario2', 'María', 'López', 'maria@example.com', '987654321', 'contraseña2', 2, '2024-01-02 12:30:00'),
+  ('usuario3', 'Carlos', 'Gómez', 'carlos@example.com', '555555555', 'contraseña3', 1, '2024-01-03 15:45:00'),
+  -- Agrega más registros según sea necesario;
 
-INSERT INTO pistas (nombre, ubicación, dimensiones, precio)
-VALUES ('Pista 1', 'Frontón', '20x10', 10);
+-- Registros de ejemplo para la tabla pistas
+INSERT INTO pistas (nombre, ubicacion, dimensiones, precio, duracion_reserva)
+VALUES
+  ('Pista1', 'Ubicación1', '20x40', 30.00, 1.5),
+  ('Pista2', 'Ubicación2', '30x60', 50.00, 2.0),
+  ('Pista3', 'Ubicación3', '25x50', 40.00, 1.0),
+  -- Agrega más registros según sea necesario;
 
-INSERT INTO pistas (nombre, ubicación, dimensiones, precio)
-VALUES ('Pista 2', 'Pista 1', '20x10', 15);
+-- Registros de ejemplo para la tabla reservas
+INSERT INTO reservas (usuario_id, pista_id, fecha, hora, importe, estado)
+VALUES
+  (1, 1, '2024-01-10', '14:00:00', 30.00, 'confirmada'),
+  (2, 2, '2024-01-11', '16:30:00', 50.00, 'pendiente'),
+  (3, 3, '2024-01-12', '09:45:00', 40.00, 'confirmada'),
+  -- Agrega más registros según sea necesario;
 
-INSERT INTO reservas (usuario_id, pista_id, fecha, hora, importe)
-VALUES (1, 1, '2023-12-20', '17:00', 10);
-
-INSERT INTO reservas (usuario_id, pista_id, fecha, hora, importe)
-VALUES (2, 2, '2023-12-21', '18:00', 15);
+-- Registros de ejemplo para la tabla pagos
+INSERT INTO pagos (reserva_id, importe, metodo_pago, fecha)
+VALUES
+  (1, 30.00, 'tarjeta', '2024-01-10 15:00:00'),
+  (2, 50.00, 'efectivo', '2024-01-11 17:00:00'),
+  (3, 40.00, 'transferencia', '2024-01-12 10:00:00');
+  -- Agrega más registros según sea necesario;

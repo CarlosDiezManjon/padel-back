@@ -1,0 +1,106 @@
+-- Creación de la base de datos
+CREATE DATABASE padelDB;
+
+-- Creación de las tablas
+\connect padelDB;
+
+CREATE TABLE usuarios (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(25) UNIQUE NOT NULL,
+  nombre VARCHAR(50) NOT NULL,
+  apellidos VARCHAR(50) NOT NULL,
+  correo VARCHAR(100) UNIQUE NOT NULL,
+  telefono VARCHAR(100) NOT NULL,
+  contraseña VARCHAR(255) NOT NULL,
+  saldo DECIMAL(10,2) NOT NULL DEFAULT 0,
+  tipo INT,
+  fecha_alta TIMESTAMP NOT NULL,
+  fecha_baja TIMESTAMP
+);
+
+CREATE TABLE pistas (
+  id SERIAL PRIMARY KEY,
+  nombre VARCHAR(50) UNIQUE NOT NULL,
+  ubicacion VARCHAR(50) NOT NULL, -- Cambiado a "ubicacion" para evitar conflictos con palabras clave de PostgreSQL
+  dimensiones VARCHAR(50) NOT NULL,
+  precio DECIMAL(10,2) NOT NULL,
+  duracion_reserva DECIMAL(1,1) NOT NULL
+);
+
+CREATE TABLE reservas (
+  id SERIAL PRIMARY KEY,
+  usuario_id INT NOT NULL,
+  pista_id INT NOT NULL,
+  fecha DATE NOT NULL,
+  hora TIME NOT NULL,
+  importe DECIMAL(10,2) NOT NULL,
+  estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',
+  FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
+  FOREIGN KEY (pista_id) REFERENCES pistas (id)
+);
+
+CREATE TABLE pagos (
+  id SERIAL PRIMARY KEY,
+  reserva_id INT NOT NULL,
+  importe DECIMAL(10,2) NOT NULL,
+  metodo_pago VARCHAR(20) NOT NULL, -- Cambiado a "metodo_pago" para evitar conflictos con palabras clave de PostgreSQL
+  fecha TIMESTAMP NOT NULL,
+  FOREIGN KEY (reserva_id) REFERENCES reservas (id)
+);
+
+
+-- Insertar datos en la tabla usuarios
+INSERT INTO usuarios (username, nombre, apellidos, correo, telefono, contraseña, saldo, tipo, fecha_alta, fecha_baja)
+VALUES
+  ('Usuario1', 'Usuario1', 'Apellido1', 'usuario1@example.com', '123456789', 'contraseña1', 100, 1, '2023-01-01', NULL),
+  ('Usuario2', 'Usuario2', 'Apellido2', 'usuario2@example.com', '987654321', 'contraseña2', 150, 2, '2023-01-02', NULL),
+  ('Usuario3', 'Usuario3', 'Apellido3', 'usuario3@example.com', '555555555', 'contraseña3', 200, 1, '2023-01-03', NULL),
+  ('Usuario4', 'Usuario4', 'Apellido4', 'usuario4@example.com', '666666666', 'contraseña4', 50, 2, '2023-01-04', NULL),
+  ('Usuario5', 'Usuario5', 'Apellido5', 'usuario5@example.com', '777777777', 'contraseña5', 75, 1, '2023-01-05', NULL),
+  ('Usuario6', 'Usuario6', 'Apellido6', 'usuario6@example.com', '888888888', 'contraseña6', 120, 2, '2023-01-06', NULL),
+  ('Usuario7', 'Usuario7', 'Apellido7', 'usuario7@example.com', '999999999', 'contraseña7', 80, 1, '2023-01-07', NULL),
+  ('Usuario8', 'Usuario8', 'Apellido8', 'usuario8@example.com', '111111111', 'contraseña8', 60, 2, '2023-01-08', NULL),
+  ('Usuario9', 'Usuario9', 'Apellido9', 'usuario9@example.com', '222222222', 'contraseña9', 110, 1, '2023-01-09', NULL),
+  ('Usuario10', 'Usuario10', 'Apellido10', 'usuario10@example.com', '333333333', 'contraseña10', 90, 2, '2023-01-10', NULL);
+
+-- Insertar datos en la tabla pistas
+INSERT INTO pistas (nombre, ubicacion, dimensiones, precio, duracion_reserva)
+VALUES
+  ('Pista1', 'Ubicacion1', '20x10', 15.5, 1.5),
+  ('Pista2', 'Ubicacion2', '25x12', 20.0, 1.5),
+  ('Pista3', 'Ubicacion3', '18x8', 12.0, 1.5),
+  ('Pista4', 'Ubicacion4', '22x11', 18.0, 1.5),
+  ('Pista5', 'Ubicacion5', '30x15', 25.0, 1.5),
+  ('Pista6', 'Ubicacion6', '28x14', 22.0, 1.5),
+  ('Pista7', 'Ubicacion7', '24x12', 19.0, 1),
+  ('Pista8', 'Ubicacion8', '26x13', 21.0, 1),
+  ('Pista9', 'Ubicacion9', '32x16', 30.0, 1),
+  ('Pista10', 'Ubicacion10', '21x10', 17.5, 1);
+
+-- Insertar datos en la tabla reservas
+INSERT INTO reservas (usuario_id, pista_id, fecha, hora, importe, estado)
+VALUES
+  (1, 1, '2023-12-20', '17:00', 10, 'confirmada'),
+  (2, 2, '2023-12-21', '18:00', 15, 'pendiente'),
+  (3, 3, '2023-12-22', '19:00', 18, 'confirmada'),
+  (4, 4, '2023-12-23', '20:00', 22, 'pendiente'),
+  (5, 5, '2023-12-24', '21:00', 25, 'confirmada'),
+  (6, 6, '2023-12-25', '16:00', 20, 'pendiente'),
+  (7, 7, '2023-12-26', '17:30', 23, 'confirmada'),
+  (8, 8, '2023-12-27', '19:00', 19, 'pendiente'),
+  (9, 9, '2023-12-28', '20:30', 28, 'confirmada'),
+  (10, 10, '2023-12-29', '22:00', 16.5, 'pendiente');
+
+-- Insertar datos en la tabla pagos
+INSERT INTO pagos (reserva_id, importe, metodo_pago, fecha)
+VALUES
+  (1, 10, 'tarjeta', '2023-12-20 18:00:00'),
+  (2, 15, 'efectivo', '2023-12-21 19:30:00'),
+  (3, 18, 'transferencia', '2023-12-22 21:00:00'),
+  (4, 22, 'tarjeta', '2023-12-23 22:30:00'),
+  (5, 25, 'efectivo', '2023-12-24 16:30:00'),
+  (6, 20, 'transferencia', '2023-12-25 18:30:00'),
+  (7, 23, 'tarjeta', '2023-12-26 20:00:00'),
+  (8, 19, 'efectivo', '2023-12-27 21:30:00'),
+  (9, 28, 'transferencia', '2023-12-28 23:00:00'),
+  (10, 16.5, 'tarjeta', '2023-12-29 17:30:00');
