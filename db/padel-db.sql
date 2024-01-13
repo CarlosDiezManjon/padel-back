@@ -9,13 +9,15 @@ CREATE TABLE usuarios (
   username VARCHAR(25) UNIQUE NOT NULL,
   nombre VARCHAR(50) NOT NULL,
   apellidos VARCHAR(50) NOT NULL,
-  correo VARCHAR(100) UNIQUE NOT NULL,
+  email VARCHAR(100) UNIQUE NOT NULL,
   telefono VARCHAR(100) NOT NULL,
-  contraseña VARCHAR(255) NOT NULL,
+  password VARCHAR(255) NOT NULL,
   saldo DECIMAL(10,2) NOT NULL DEFAULT 0,
-  tipo INT,
+  tipo INT NOT NULL DEFAULT 1,
   fecha_alta TIMESTAMP NOT NULL,
-  fecha_baja TIMESTAMP
+  fecha_baja TIMESTAMP,
+  activo BOOLEAN NOT NULL DEFAULT FALSE,
+  token_activacion VARCHAR(255)
 );
 
 CREATE TABLE pistas (
@@ -50,7 +52,7 @@ CREATE TABLE pagos (
   FOREIGN KEY (reserva_id) REFERENCES reservas (id)
 );
 
-INSERT INTO usuarios (username, nombre, apellidos, correo, telefono, contraseña, tipo, fecha_alta)
+INSERT INTO usuarios (username, nombre, apellidos, email, telefono, password, tipo, fecha_alta)
 VALUES
   ('usuario1', 'Juan', 'Pérez', 'juan@example.com', '123456789', 'contraseña1', 1, '2024-01-01 10:00:00'),
   ('usuario2', 'María', 'López', 'maria@example.com', '987654321', 'contraseña2', 2, '2024-01-02 12:30:00'),
