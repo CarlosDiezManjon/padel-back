@@ -1,5 +1,6 @@
 const crypto = require('crypto')
 const nodemailer = require('nodemailer')
+const bcrypt = require('bcrypt')
 
 function generarCodigoRegistro() {
   const caracteresPermitidos =
@@ -68,7 +69,14 @@ function sendConfirmationEmail(
     })
   })
 }
+
+function cifrarPassword(password) {
+  const saltRounds = 10
+  return bcrypt.hash(password, saltRounds)
+}
+
 module.exports = {
   generarCodigoRegistro,
   sendConfirmationEmail,
+  cifrarPassword,
 }

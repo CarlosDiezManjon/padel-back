@@ -6,7 +6,9 @@
     "express": "^4.18.2",
     "jsonwebtoken": "^9.0.2",
     "nodemailer": "^6.9.8",
-    "pg-promise": "^11.5.4"
+    "pg-promise": "^11.5.4",
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^4.7.1"
   },
   "devDependencies": {
     "eslint": "^8.56.0",

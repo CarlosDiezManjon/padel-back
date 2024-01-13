@@ -1,12 +1,17 @@
 const { SECRET_KEY } = require('../config/constants')
 const db = require('../config/db')
 const jwt = require('jsonwebtoken')
+const bcrypt = require('bcrypt')
 
 const {
   generarCodigoRegistro,
   sendConfirmationEmail,
+  cifrarPassword,
 } = require('../config/utils')
+const logger = require('../config/logger')
+
 exports.createUser = async (req, res) => {
+  logger.info('Creando usuario' + req.body.username)
   try {
     const {
       username,
@@ -19,12 +24,13 @@ exports.createUser = async (req, res) => {
     } = req.body
     const fecha_alta = new Date()
     const saldo = 0
+    const securedPassword = await cifrarPassword(password)
     const tokenConfirmacion = generarCodigoRegistro()
     const usuario = await db.one(
       'INSERT INTO Usuarios(username, password, nombre, apellidos, email, telefono, tipo, fecha_alta, saldo, token_activacion) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
       [
         username,
-        password,
+        securedPassword,
         nombre,
         apellidos,
         email,
@@ -52,15 +58,33 @@ exports.createUser = async (req, res) => {
 }
 
 exports.login = async (req, res) => {
+  logger.info('Login usuario ' + req.body.username)
   try {
     const { username, password } = req.body
     const usuario = await db.one(
-      'SELECT id,username,nombre, apellidos, email,telefono,saldo, tipo, fecha_alta FROM Usuarios WHERE username = $1 AND password = $2',
-      [username, password],
+      'SELECT id,username,nombre,password, apellidos, email,telefono,saldo, tipo, fecha_alta FROM Usuarios WHERE username = $1 AND activo = true',
+      [username],
     )
-    const token = jwt.sign(usuario, SECRET_KEY, {
-      expiresIn: '1h',
-    })
+    const passwordValido = await bcrypt.compare(
+      password,
+      usuario.password,
+    )
+    if (!passwordValido) {
+      res.status(400).json({
+        error: 'Usuario o contraseña incorrectos.',
+      })
+    }
+    const {
+      password: passwordToIgnore,
+      ...userWithoutPassword
+    } = usuario
+    const token = jwt.sign(
+      userWithoutPassword,
+      SECRET_KEY,
+      {
+        expiresIn: '1h',
+      },
+    )
     res.json({ success: true, token: token })
   } catch (error) {
     res.status(500).json({ error: error.message })
@@ -97,6 +121,15 @@ exports.getUserByUsername = async (req, res) => {
 }
 
 exports.deleteUser = async (req, res) => {
+  const token = req.headers.authorization.split(' ')[1]
+  const decodedToken = jwt.verify(token, SECRET_KEY)
+  const { tipo } = decodedToken
+  if (tipo !== 2) {
+    return res.status(401).json({
+      error: 'No tienes permisos para eliminar usuarios.',
+    })
+  }
+  logger.info('Eliminando usuario ' + req.params.id)
   try {
     const { id } = req.params
     const fecha_baja = new Date()
@@ -113,6 +146,7 @@ exports.deleteUser = async (req, res) => {
 }
 
 exports.updateUser = async (req, res) => {
+  logger.info('Actualizando usuario ' + req.body.username)
   try {
     const { id } = req.params
     const {
@@ -144,10 +178,13 @@ exports.updateUser = async (req, res) => {
 }
 
 exports.confirmUser = async (req, res) => {
+  logger.info(
+    'Confirmando usuario con token: ' + req.params.token,
+  )
   try {
     const { token } = req.params
     const usuarioToConfirm = await db.one(
-      'SELECT * FROM Usuarios WHERE activo = false AND token_activacion = $1 RETURNING *',
+      'SELECT * FROM Usuarios WHERE activo = false AND token_activacion = $1',
       [token],
     )
     if (!usuarioToConfirm) {
@@ -182,8 +219,6 @@ exports.confirmUser = async (req, res) => {
       })
     }
   } catch (error) {
-    res
-      .status(400)
-      .json({ error: 'Error al confirmar usuario.' })
+    res.status(400).json({ error: error.message })
   }
 }
