@@ -21,10 +21,12 @@ CREATE TABLE usuarios (
 CREATE TABLE pistas (
   id SERIAL PRIMARY KEY,
   nombre VARCHAR(50) UNIQUE NOT NULL,
-  ubicacion VARCHAR(50) NOT NULL, -- Cambiado a "ubicacion" para evitar conflictos con palabras clave de PostgreSQL
-  dimensiones VARCHAR(50) NOT NULL,
+  ubicacion VARCHAR(50) NOT NULL,
+  lat DECIMAL(10,2) NOT NULL,
+  lon DECIMAL(10,2) NOT NULL,
   precio DECIMAL(10,2) NOT NULL,
-  duracion_reserva DECIMAL(1,1) NOT NULL
+  duracion_reserva DECIMAL(2,1) NOT NULL,
+  activo BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 CREATE TABLE reservas (
@@ -43,40 +45,32 @@ CREATE TABLE pagos (
   id SERIAL PRIMARY KEY,
   reserva_id INT NOT NULL,
   importe DECIMAL(10,2) NOT NULL,
-  metodo_pago VARCHAR(20) NOT NULL, -- Cambiado a "metodo_pago" para evitar conflictos con palabras clave de PostgreSQL
+  metodo_pago VARCHAR(20) NOT NULL,
   fecha TIMESTAMP NOT NULL,
   FOREIGN KEY (reserva_id) REFERENCES reservas (id)
 );
 
-
--- Registros de ejemplo para la tabla usuarios
 INSERT INTO usuarios (username, nombre, apellidos, correo, telefono, contraseña, tipo, fecha_alta)
 VALUES
   ('usuario1', 'Juan', 'Pérez', 'juan@example.com', '123456789', 'contraseña1', 1, '2024-01-01 10:00:00'),
   ('usuario2', 'María', 'López', 'maria@example.com', '987654321', 'contraseña2', 2, '2024-01-02 12:30:00'),
-  ('usuario3', 'Carlos', 'Gómez', 'carlos@example.com', '555555555', 'contraseña3', 1, '2024-01-03 15:45:00'),
-  -- Agrega más registros según sea necesario;
+  ('usuario3', 'Carlos', 'Gómez', 'carlos@example.com', '555555555', 'contraseña3', 1, '2024-01-03 15:45:00');
 
--- Registros de ejemplo para la tabla pistas
-INSERT INTO pistas (nombre, ubicacion, dimensiones, precio, duracion_reserva)
+INSERT INTO pistas (nombre, ubicacion, lat, lon, precio, duracion_reserva)
 VALUES
-  ('Pista1', 'Ubicación1', '20x40', 30.00, 1.5),
-  ('Pista2', 'Ubicación2', '30x60', 50.00, 2.0),
-  ('Pista3', 'Ubicación3', '25x50', 40.00, 1.0),
-  -- Agrega más registros según sea necesario;
+  ('Pista1', 'Ubicación1', 10.8, 5.7, 30.00, 1.5),
+  ('Pista2', 'Ubicación2', 10.8, 5.7, 50.00, 2.0),
+  ('Pista3', 'Ubicación3', 10.8, 5.7, 40.00, 1.0);
 
--- Registros de ejemplo para la tabla reservas
 INSERT INTO reservas (usuario_id, pista_id, fecha, hora, importe, estado)
 VALUES
-  (1, 1, '2024-01-10', '14:00:00', 30.00, 'confirmada'),
-  (2, 2, '2024-01-11', '16:30:00', 50.00, 'pendiente'),
-  (3, 3, '2024-01-12', '09:45:00', 40.00, 'confirmada'),
-  -- Agrega más registros según sea necesario;
+  (1, 2, '2024-01-10', '14:00:00', 30.00, 'confirmada'),
+  (2, 1, '2024-01-11', '16:30:00', 50.00, 'pendiente'),
+  (3, 3, '2024-01-12', '09:45:00', 40.00, 'confirmada');
 
--- Registros de ejemplo para la tabla pagos
 INSERT INTO pagos (reserva_id, importe, metodo_pago, fecha)
 VALUES
   (1, 30.00, 'tarjeta', '2024-01-10 15:00:00'),
   (2, 50.00, 'efectivo', '2024-01-11 17:00:00'),
   (3, 40.00, 'transferencia', '2024-01-12 10:00:00');
-  -- Agrega más registros según sea necesario;
+
