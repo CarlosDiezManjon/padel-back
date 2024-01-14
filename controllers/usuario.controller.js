@@ -7,25 +7,33 @@ const {
   generarCodigoRegistro,
   sendConfirmationEmail,
   cifrarPassword,
+  decodeTokenFromReq,
 } = require('../config/utils')
 const logger = require('../config/logger')
+const { validateUserFromToken } = require('../config/token.validation')
 
 exports.createUser = async (req, res) => {
   logger.info('Creando usuario' + req.body.username)
   try {
-    const {
-      username,
-      nombre,
-      apellidos,
-      password,
-      email,
-      telefono,
-      tipo,
-    } = req.body
+    const { username, nombre, apellidos, password, email, telefono, tipo } = req.body
     const fecha_alta = new Date()
     const saldo = 0
     const securedPassword = await cifrarPassword(password)
     const tokenConfirmacion = generarCodigoRegistro()
+    const userSameUsername = await db.oneOrNone('SELECT * FROM Usuarios WHERE username = $1', [
+      username,
+    ])
+    if (userSameUsername) {
+      res.status(400).json({
+        error: 'Username ya existe',
+      })
+    }
+    const userSameEmail = await db.oneOrNone('SELECT * FROM Usuarios WHERE email = $1', [email])
+    if (userSameEmail) {
+      res.status(400).json({
+        error: 'Email ya existe',
+      })
+    }
     const usuario = await db.one(
       'INSERT INTO Usuarios(username, password, nombre, apellidos, email, telefono, tipo, fecha_alta, saldo, token_activacion) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
       [
@@ -35,16 +43,13 @@ exports.createUser = async (req, res) => {
         apellidos,
         email,
         telefono,
-        tipo,
+        tipo ? tipo : 1,
         fecha_alta,
         saldo,
         tokenConfirmacion,
       ],
     )
-    const emailSent = await sendConfirmationEmail(
-      email,
-      tokenConfirmacion,
-    )
+    const emailSent = await sendConfirmationEmail(email, tokenConfirmacion)
     if (emailSent) {
       res.json({ success: true, data: usuario })
     } else {
@@ -65,65 +70,57 @@ exports.login = async (req, res) => {
       'SELECT id,username,nombre,password, apellidos, email,telefono,saldo, tipo, fecha_alta FROM Usuarios WHERE username = $1 AND activo = true',
       [username],
     )
-    const passwordValido = await bcrypt.compare(
-      password,
-      usuario.password,
-    )
+    const passwordValido = await bcrypt.compare(password, usuario.password)
     if (!passwordValido) {
       res.status(400).json({
         error: 'Usuario o contraseña incorrectos.',
       })
     }
-    const {
-      password: passwordToIgnore,
-      ...userWithoutPassword
-    } = usuario
-    const token = jwt.sign(
-      userWithoutPassword,
-      SECRET_KEY,
-      {
-        expiresIn: '1h',
-      },
-    )
+    const { password: passwordToIgnore, ...userWithoutPassword } = usuario
+    const token = jwt.sign(userWithoutPassword, SECRET_KEY, {
+      expiresIn: '1h',
+    })
     res.json({ success: true, token: token })
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    res.status(400).json({ error: 'Usuario o contraseña incorrectos.' })
   }
 }
 
 exports.getUsers = async (req, res) => {
+  const { tipo } = validateUserFromToken(req, res)
+  if (tipo !== 2) {
+    return res.status(401).json({
+      error: 'No tienes permisos para ver usuarios.',
+    })
+  }
   try {
-    const usuarios = await db.any(
-      'SELECT * FROM Usuarios where activo is false',
-    )
+    const usuarios = await db.any('SELECT * FROM Usuarios where activo is false')
     res.json(usuarios)
   } catch (error) {
-    res
-      .status(500)
-      .json({ error: 'Error al obtener usuarios.' })
+    res.status(500).json({ error: 'Error al obtener usuarios.' })
   }
 }
 
 exports.getUserByUsername = async (req, res) => {
+  const { tipo } = validateUserFromToken(req, res)
+  if (tipo !== 2) {
+    return res.status(401).json({
+      error: 'No tienes permisos para ver usuarios.',
+    })
+  }
   try {
     const { username } = req.params
-    const usuario = await db.one(
-      'SELECT * FROM Usuarios WHERE username = $1',
-      [username],
-    )
+    const usuario = await db.one('SELECT * FROM Usuarios WHERE username = $1', [username])
     res.json(usuario)
   } catch (error) {
     res.status(500).json({
-      error:
-        'Error al obtener usuario por nombre de usuario.',
+      error: 'Error al obtener usuario por nombre de usuario.',
     })
   }
 }
 
 exports.deleteUser = async (req, res) => {
-  const token = req.headers.authorization.split(' ')[1]
-  const decodedToken = jwt.verify(token, SECRET_KEY)
-  const { tipo } = decodedToken
+  const { tipo } = validateUserFromToken(req, res)
   if (tipo !== 2) {
     return res.status(401).json({
       error: 'No tienes permisos para eliminar usuarios.',
@@ -139,37 +136,24 @@ exports.deleteUser = async (req, res) => {
     )
     res.json(usuario)
   } catch (error) {
-    res
-      .status(500)
-      .json({ error: 'Error al eliminar usuario.' })
+    res.status(500).json({ error: 'Error al eliminar usuario.' })
   }
 }
 
 exports.updateUser = async (req, res) => {
+  const { tipo } = validateUserFromToken(req, res)
+  if (tipo !== 2) {
+    return res.status(401).json({
+      error: 'No tienes permisos para actualizar usuarios.',
+    })
+  }
   logger.info('Actualizando usuario ' + req.body.username)
   try {
     const { id } = req.params
-    const {
-      username,
-      nombre,
-      apellidos,
-      password,
-      email,
-      telefono,
-      tipo,
-    } = req.body
+    const { username, nombre, apellidos, password, email, telefono, tipo } = req.body
     const usuario = await db.one(
       'UPDATE Usuarios SET username = $1, password = $2, nombre = $3, apellidos = $4, email = $5, telefono = $6, tipo = $7 WHERE id = $8 RETURNING *',
-      [
-        username,
-        password,
-        nombre,
-        apellidos,
-        email,
-        telefono,
-        tipo,
-        id,
-      ],
+      [username, password, nombre, apellidos, email, telefono, tipo, id],
     )
     res.json(usuario)
   } catch (error) {
@@ -178,9 +162,7 @@ exports.updateUser = async (req, res) => {
 }
 
 exports.confirmUser = async (req, res) => {
-  logger.info(
-    'Confirmando usuario con token: ' + req.params.token,
-  )
+  logger.info('Confirmando usuario con token: ' + req.params.token)
   try {
     const { token } = req.params
     const usuarioToConfirm = await db.one(

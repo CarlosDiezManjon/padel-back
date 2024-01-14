@@ -1,18 +1,21 @@
-const express = require('express');
-const bodyParser = require('body-parser');
-const app = express();
-const port = 3000;
+const express = require('express')
+const bodyParser = require('body-parser')
+const app = express()
+const cors = require('cors')
+const port = 3000
 
-// Configura body-parser para analizar JSON
-app.use(bodyParser.json());
+app.use(bodyParser.json())
+const corsOptions = {
+  origin: 'http://localhost:5173',
+  optionsSuccessStatus: 200,
+}
+app.use(cors(corsOptions))
 
-// Conexión a la base de datos PostgreSQL
-const usuarioRoutes = require('./routes/usuario.routes');
-const pistasRoutes = require('./routes/pistas.routes');
-app.use('', usuarioRoutes);
-app.use('', pistasRoutes);
-
+const usuarioRoutes = require('./routes/usuario.routes')
+const pistasRoutes = require('./routes/pistas.routes')
+app.use('', usuarioRoutes)
+app.use('', pistasRoutes)
 
 app.listen(port, () => {
-  console.log(`API escuchando en el puerto ${port}`);
-});
+  console.log(`API escuchando en el puerto ${port}`)
+})

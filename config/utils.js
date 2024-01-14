@@ -3,8 +3,7 @@ const nodemailer = require('nodemailer')
 const bcrypt = require('bcrypt')
 
 function generarCodigoRegistro() {
-  const caracteresPermitidos =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  const caracteresPermitidos = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
   let stringAleatorio = ''
 
   for (let i = 0; i < 16; i++) {
@@ -17,7 +16,6 @@ function generarCodigoRegistro() {
   return stringAleatorio
 }
 function remplazarParametros(plantilla, parametros) {
-  // Realiza reemplazos en la plantilla
   for (const [clave, valor] of Object.entries(parametros)) {
     const expresionRegular = new RegExp(`{{${clave}}}`, 'g')
     plantilla = plantilla.replace(expresionRegular, valor)
@@ -25,15 +23,12 @@ function remplazarParametros(plantilla, parametros) {
   return plantilla
 }
 
-function sendConfirmationEmail(
-  to_address,
-  tokenConfirmacion,
-) {
+function sendConfirmationEmail(to_address, tokenConfirmacion) {
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-      user: 'noreply.padel.app@gmail.com', // tu dirección de correo
-      pass: 'devo oqyr qpjd uhpe', // tu contraseña
+      user: 'noreply.padel.app@gmail.com',
+      pass: 'devo oqyr qpjd uhpe',
     },
   })
   return new Promise((resolve, reject) => {
@@ -46,10 +41,7 @@ function sendConfirmationEmail(
     const parametros = {
       tokenConfirmacion: tokenConfirmacion,
     }
-    const html = remplazarParametros(
-      htmlTemplate,
-      parametros,
-    )
+    const html = remplazarParametros(htmlTemplate, parametros)
 
     const mailOptions = {
       from: 'noreply.padel.app@gmail.com',
