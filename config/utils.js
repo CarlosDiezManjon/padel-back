@@ -1,6 +1,7 @@
 const crypto = require('crypto')
 const nodemailer = require('nodemailer')
 const bcrypt = require('bcrypt')
+const logger = require('./logger')
 
 function generarCodigoRegistro() {
   const caracteresPermitidos = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
@@ -52,10 +53,10 @@ function sendConfirmationEmail(to_address, tokenConfirmacion) {
 
     transporter.sendMail(mailOptions, (error, info) => {
       if (error) {
-        console.log('Error sending email:', error)
+        logger.error('Error sending email:', error)
         reject(false)
       } else {
-        console.log('Email sent:', info.response)
+        logger.info('Email sent:', to_address)
         resolve(true)
       }
     })

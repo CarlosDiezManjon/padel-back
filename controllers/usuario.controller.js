@@ -30,6 +30,7 @@ exports.createUser = async (req, res) => {
     }
     const userSameEmail = await db.oneOrNone('SELECT * FROM Usuarios WHERE email = $1', [email])
     if (userSameEmail) {
+      logger.error('Email ya existe')
       res.status(400).json({
         error: 'Email ya existe',
       })
@@ -94,8 +95,8 @@ exports.getUsers = async (req, res) => {
     })
   }
   try {
-    const usuarios = await db.any('SELECT * FROM Usuarios where activo is false')
-    res.json(usuarios)
+    const usuarios = await db.any('SELECT * FROM Usuarios')
+    res.json({ success: true, usuarios })
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener usuarios.' })
   }
