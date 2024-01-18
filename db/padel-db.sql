@@ -24,19 +24,20 @@ CREATE TABLE pistas (
   id SERIAL PRIMARY KEY,
   nombre VARCHAR(50) UNIQUE NOT NULL,
   ubicacion VARCHAR(50) NOT NULL,
-  lat DECIMAL(10,2) NOT NULL,
-  lon DECIMAL(10,2) NOT NULL,
+  lat DECIMAL(10,2) NOT NULL DEFAULT 10.8,
+  lon DECIMAL(10,2) NOT NULL DEFAULT 5.3,
   precio DECIMAL(10,2) NOT NULL,
   duracion_reserva DECIMAL(2,1) NOT NULL,
-  activo BOOLEAN NOT NULL DEFAULT TRUE
+  activo BOOLEAN NOT NULL DEFAULT TRUE,
+  hora_inicio TIME NOT NULL DEFAULT '09:00:00',
+  hora_fin TIME NOT NULL DEFAULT '22:00:00'
 );
 
 CREATE TABLE reservas (
   id SERIAL PRIMARY KEY,
   usuario_id INT NOT NULL,
   pista_id INT NOT NULL,
-  fecha DATE NOT NULL,
-  hora TIME NOT NULL,
+  fecha TIMESTAMP NOT NULL,
   importe DECIMAL(10,2) NOT NULL,
   estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',
   FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
@@ -66,9 +67,9 @@ VALUES
 
 INSERT INTO reservas (usuario_id, pista_id, fecha, hora, importe, estado)
 VALUES
-  (1, 2, '2024-01-10', '14:00:00', 30.00, 'confirmada'),
-  (2, 1, '2024-01-11', '16:30:00', 50.00, 'pendiente'),
-  (3, 3, '2024-01-12', '09:45:00', 40.00, 'confirmada');
+  (1, 2, '2024-01-01 10:00:00', 30.00, 'confirmada'),
+  (2, 1, '2024-01-01 10:00:00', 50.00, 'pendiente'),
+  (3, 3, '2024-01-01 10:00:00', 40.00, 'confirmada');
 
 INSERT INTO pagos (reserva_id, importe, metodo_pago, fecha)
 VALUES
