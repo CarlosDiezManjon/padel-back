@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken')
 const db = require('../config/db')
 const { SECRET_KEY } = require('./constants')
 
-function validateUserFromToken(req, res) {
+async function validateUserFromToken(req, res) {
   const token = req.headers.authorization.split(' ')[1]
   try {
     const decodedToken = jwt.verify(token, SECRET_KEY, { ignoreExpiration: false })
@@ -15,17 +15,19 @@ function validateUserFromToken(req, res) {
     // }
 
     // Check if the user exists in the database and is active
-    const user = db.oneOrNone('SELECT * FROM Usuarios WHERE activo = true and username = $1', [
-      decodedToken.username,
-    ])
+    const user = await db.oneOrNone(
+      'SELECT * FROM Usuarios WHERE activo = true and username = $1',
+      [decodedToken.username],
+    )
     if (!user) {
       res.status(401).json({ error: 'Usuario no encontrado' })
-      return
+      return null
     }
 
-    return decodedToken
+    return user
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' })
+    return null
   }
 }
 module.exports = {
