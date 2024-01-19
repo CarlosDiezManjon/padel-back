@@ -26,7 +26,7 @@ async function validateUserFromToken(req, res) {
 
     return user
   } catch (error) {
-    res.status(401).json({ error: 'Invalid token' })
+    res.status(401).json({ error: 'Sesión caducada' })
     return null
   }
 }

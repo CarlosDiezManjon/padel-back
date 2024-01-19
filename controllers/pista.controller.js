@@ -9,9 +9,9 @@ exports.getPistas = async (req, res) => {
   try {
     let pistas = []
     if (user.tipo !== 2) {
-      pistas = await db.any('SELECT * FROM Pistas WHERE activo = TRUE')
+      pistas = await db.any('SELECT * FROM Pistas WHERE activo = TRUE ORDER BY nombre ASC')
     } else {
-      pistas = await db.any('SELECT * FROM Pistas')
+      pistas = await db.any('SELECT * FROM Pistas ORDER BY activo DESC, nombre ASC')
     }
 
     pistas.forEach((pista) => {
@@ -56,7 +56,7 @@ exports.createPista = async (req, res) => {
       [nombre, ubicacion, precio, duracion_reserva],
     )
     parseFloatsPista(pista)
-    res.json({ success: true, pista })
+    res.json({ success: true, message: 'Pista creada', pista })
   } catch (error) {
     res.status(400).json({ error: error.message })
   }
@@ -80,7 +80,7 @@ exports.updatePista = async (req, res) => {
       [nombre, ubicacion, lat, lon, precio, duracion_reserva, id],
     )
     parseFloatsPista(pista)
-    res.json({ success: true, pista })
+    res.json({ success: true, message: 'Pista actualizada', pista })
   } catch (error) {
     res.status(400).json({ error: error.message })
   }
@@ -96,7 +96,7 @@ exports.deletePista = async (req, res) => {
     if (reserva.length === 0) {
       const pista = await db.one('UPDATE Pistas SET activo=FALSE WHERE id = $1 RETURNING *', [id])
       parseFloatsPista(pista)
-      res.json({ success: true, pista })
+      res.json({ success: true, message: 'Pista desactivada', pista })
     } else {
       res.status(400).json({ error: 'Hay reservas pendientes aún.' })
     }
@@ -110,7 +110,7 @@ exports.activatePista = async (req, res) => {
     const { id } = req.params
     const pista = await db.one('UPDATE Pistas SET activo=TRUE WHERE id = $1 RETURNING *', [id])
     parseFloatsPista(pista)
-    res.json({ success: true, pista })
+    res.json({ success: true, message: 'Pista activada', pista })
   } catch (error) {
     res.status(400).json({ error: error.message })
   }

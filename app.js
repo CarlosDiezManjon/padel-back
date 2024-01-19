@@ -14,8 +14,10 @@ app.use(cors(corsOptions))
 
 const usuarioRoutes = require('./routes/usuario.routes')
 const pistasRoutes = require('./routes/pistas.routes')
+const reservaRoutes = require('./routes/reserva.routes')
 app.use('', usuarioRoutes)
 app.use('', pistasRoutes)
+app.use('', reservaRoutes)
 
 app.listen(port, () => {
   console.log(`API escuchando en el puerto ${port}`)

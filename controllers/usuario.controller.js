@@ -1,6 +1,7 @@
 const { SECRET_KEY } = require('../config/constants')
 const db = require('../config/db')
 const jwt = require('jsonwebtoken')
+const logger = require('../config/logger')
 const bcrypt = require('bcrypt')
 
 const {
@@ -9,7 +10,7 @@ const {
   cifrarPassword,
   decodeTokenFromReq,
 } = require('../config/utils')
-const logger = require('../config/logger')
+
 const { validateUserFromToken } = require('../config/token.validation')
 const constants = require('../config/constants')
 
@@ -68,7 +69,10 @@ exports.createUser = async (req, res) => {
 exports.getUserById = async (req, res) => {
   const { id } = req.params
   try {
-    const usuario = await db.one('SELECT * FROM Usuarios WHERE id = $1', [id])
+    const usuario = await db.one(
+      'SELECT id, username, nombre, apellidos, email,telefono, saldo, tipo,fecha_alta, fecha_baja, activo FROM Usuarios WHERE id = $1',
+      [id],
+    )
 
     res.json({ success: true, usuario })
   } catch (error) {
@@ -86,6 +90,11 @@ exports.login = async (req, res) => {
       'SELECT id,username,nombre,password, apellidos, email,telefono,saldo, tipo, fecha_alta FROM Usuarios WHERE username = $1 AND activo = true',
       [username],
     )
+    if (usuario === null) {
+      res.status(400).json({
+        error: 'Usuario o contraseña incorrectos.',
+      })
+    }
     const passwordValido = await bcrypt.compare(password, usuario.password)
     if (!passwordValido) {
       res.status(400).json({
@@ -113,7 +122,9 @@ exports.getUsers = async (req, res) => {
     })
   }
   try {
-    const usuarios = await db.any('SELECT * FROM Usuarios ORDER BY nombre ASC, apellidos ASC')
+    const usuarios = await db.any(
+      'SELECT id, username, nombre, apellidos, email,telefono, saldo, tipo,fecha_alta, fecha_baja, activo FROM Usuarios ORDER BY nombre ASC, apellidos ASC',
+    )
     res.json({ success: true, usuarios })
   } catch (error) {
     res.status(400).json({ error: error.message })
@@ -132,7 +143,10 @@ exports.getUserByUsername = async (req, res) => {
   }
   try {
     const { username } = req.params
-    const usuario = await db.one('SELECT * FROM Usuarios WHERE username = $1', [username])
+    const usuario = await db.one(
+      'SELECT id, username, nombre, apellidos, email,telefono, saldo, tipo,fecha_alta, fecha_baja, activo FROM Usuarios WHERE username = $1',
+      [username],
+    )
     res.json({ success: true, usuario })
   } catch (error) {
     res.status(400).json({
@@ -159,7 +173,7 @@ exports.deleteUser = async (req, res) => {
       'UPDATE Usuarios SET fecha_baja = $1, activo = false WHERE id = $2 RETURNING *',
       [fecha_baja, id],
     )
-    res.json({ success: true, usuario })
+    res.json({ success: true, message: 'Usuario dado de baja', usuario })
   } catch (error) {
     res.status(400).json({ error: error.message })
   }
@@ -182,7 +196,7 @@ exports.activateUser = async (req, res) => {
       'UPDATE Usuarios SET fecha_baja = $1, activo = true WHERE id = $2 RETURNING *',
       [null, id],
     )
-    res.json({ success: true, usuario })
+    res.json({ success: true, message: 'Usuario activado', usuario })
   } catch (error) {
     res.status(400).json({ error: error.message })
   }
@@ -201,10 +215,26 @@ exports.updateUser = async (req, res) => {
   }
   try {
     const { id } = req.params
-    const { username, nombre, apellidos, password, email, telefono, tipo } = req.body
+    const { username, nombre, apellidos, email, telefono, tipo, saldo } = req.body
     const usuario = await db.one(
-      'UPDATE Usuarios SET username = $1, password = $2, nombre = $3, apellidos = $4, email = $5, telefono = $6, tipo = $7 WHERE id = $8 RETURNING *',
-      [username, password, nombre, apellidos, email, telefono, tipo, id],
+      'UPDATE Usuarios SET username = $1, nombre = $2, apellidos = $3, email = $4, telefono = $5, tipo = $6, saldo = $7 WHERE id = $8 RETURNING *',
+      [username, nombre, apellidos, email, telefono, tipo, saldo, id],
+    )
+    res.json({ success: true, message: 'Usuario actualizado', usuario })
+  } catch (error) {
+    res.status(400).json({ error: error.message })
+  }
+}
+
+exports.getPerfil = async (req, res) => {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
+    return
+  }
+  try {
+    const usuario = await db.one(
+      'SELECT id, username, nombre, apellidos, email,telefono, saldo, tipo,fecha_alta, fecha_baja, activo FROM Usuarios WHERE id = $1',
+      [user.id],
     )
     res.json({ success: true, usuario })
   } catch (error) {
