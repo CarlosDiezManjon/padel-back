@@ -85,3 +85,83 @@ exports.deleteReserva = async (req, res) => {
     res.status(400).json({ error: error.message })
   }
 }
+
+exports.getParrillaPistas = async (req, res) => {
+  try {
+    const { fecha } = req.params
+    const reservas = await db.any(
+      'SELECT Reservas.*, Pistas.nombre, Pistas.duracion_reserva, Usuarios.username FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id INNER JOIN Usuarios ON Reservas.usuario_id = Usuarios.id WHERE fecha = $1',
+      [fecha],
+    )
+    const pistas = await db.any('SELECT * FROM Pistas where activo = true ORDER BY nombre ASC')
+    pistas.forEach((p) => {
+      const date = new Date(fecha)
+      const [startHours, startMinutes, startSeconds] = p.hora_inicio.split(':').map(Number)
+      const [endHours, endMinutes, endSeconds] = p.hora_fin.split(':').map(Number)
+      const duration = parseFloat(p.duracion_reserva)
+
+      const startTime = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        startHours,
+        startMinutes,
+      )
+      const endTime = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        endHours,
+        endMinutes,
+      )
+
+      p.parrilla = []
+
+      const startDateTime = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        startTime.getHours(),
+        startTime.getMinutes(),
+      )
+      const endDateTime = new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        endTime.getHours(),
+        endTime.getMinutes(),
+      )
+
+      for (
+        let time = new Date(startDateTime);
+        time < endDateTime;
+        time.setMinutes(time.getMinutes() + duration)
+      ) {
+        const slot = {
+          startTime: new Date(time),
+          endTime: new Date(time.getTime() + duration * 60000),
+        }
+        reservas.forEach((r) => {
+          const [reservaHours, reservaMinutes, reservaSeconds] = r.hora.split(':').map(Number)
+          const reservaTime = new Date(
+            date.getFullYear(),
+            date.getMonth(),
+            date.getDate(),
+            reservaHours,
+            reservaMinutes,
+          )
+          if (slot.startTime.getTime() === reservaTime.getTime() && r.pista_id === p.id) {
+            slot.reserva = r
+          } else {
+            slot.reserva = null
+          }
+        })
+        p.parrilla.push(slot)
+      }
+    })
+
+    res.json({ success: true, pistas })
+  } catch (error) {
+    res.status(400).json({ error: error.message })
+  }
+}

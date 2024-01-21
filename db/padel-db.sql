@@ -4,6 +4,11 @@ CREATE DATABASE padelDB;
 -- Creación de las tablas
 \connect padelDB;
 
+drop table pagos;
+drop table reservas;
+drop table pistas;
+drop table usuarios;
+
 CREATE TABLE usuarios (
   id SERIAL PRIMARY KEY,
   username VARCHAR(25) UNIQUE NOT NULL,
@@ -27,7 +32,7 @@ CREATE TABLE pistas (
   lat DECIMAL(10,2) NOT NULL DEFAULT 10.8,
   lon DECIMAL(10,2) NOT NULL DEFAULT 5.3,
   precio DECIMAL(10,2) NOT NULL,
-  duracion_reserva DECIMAL(2,1) NOT NULL,
+  duracion_reserva INT NOT NULL,
   activo BOOLEAN NOT NULL DEFAULT TRUE,
   hora_inicio TIME NOT NULL DEFAULT '09:00:00',
   hora_fin TIME NOT NULL DEFAULT '22:00:00'
@@ -37,7 +42,8 @@ CREATE TABLE reservas (
   id SERIAL PRIMARY KEY,
   usuario_id INT NOT NULL,
   pista_id INT NOT NULL,
-  fecha TIMESTAMP NOT NULL,
+  fecha DATE NOT NULL,
+  hora TIME NOT NULL,
   importe DECIMAL(10,2) NOT NULL,
   estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',
   FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
@@ -53,27 +59,4 @@ CREATE TABLE pagos (
   FOREIGN KEY (reserva_id) REFERENCES reservas (id)
 );
 
-INSERT INTO usuarios (username, nombre, apellidos, email, telefono, password, tipo, fecha_alta)
-VALUES
-  ('usuario1', 'Juan', 'Pérez', 'juan@example.com', '123456789', 'contraseña1', 1, '2024-01-01 10:00:00'),
-  ('usuario2', 'María', 'López', 'maria@example.com', '987654321', 'contraseña2', 2, '2024-01-02 12:30:00'),
-  ('usuario3', 'Carlos', 'Gómez', 'carlos@example.com', '555555555', 'contraseña3', 1, '2024-01-03 15:45:00');
-
-INSERT INTO pistas (nombre, ubicacion, lat, lon, precio, duracion_reserva)
-VALUES
-  ('Pista1', 'Ubicación1', 10.8, 5.7, 30.00, 1.5),
-  ('Pista2', 'Ubicación2', 10.8, 5.7, 50.00, 2.0),
-  ('Pista3', 'Ubicación3', 10.8, 5.7, 40.00, 1.0);
-
-INSERT INTO reservas (usuario_id, pista_id, fecha, hora, importe, estado)
-VALUES
-  (1, 2, '2024-01-01 10:00:00', 30.00, 'confirmada'),
-  (2, 1, '2024-01-01 10:00:00', 50.00, 'pendiente'),
-  (3, 3, '2024-01-01 10:00:00', 40.00, 'confirmada');
-
-INSERT INTO pagos (reserva_id, importe, metodo_pago, fecha)
-VALUES
-  (1, 30.00, 'tarjeta', '2024-01-10 15:00:00'),
-  (2, 50.00, 'efectivo', '2024-01-11 17:00:00'),
-  (3, 40.00, 'transferencia', '2024-01-12 10:00:00');
-
+INSERT INTO usuarios (id, username, nombre, apellidos, email, telefono, "password", saldo, tipo, fecha_alta, fecha_baja, activo, token_activacion) VALUES(13, 'charlesmcmahon', 'Carlos', 'Díez', 'cdiez1995@gmail.com', '645773320', '$2b$10$65DXZ7mQrblDL95fEeUyduRBOI2mHXF6j0OhNc3MdZe9kmIoMPUTS', 0.00, 2, '2024-01-14 19:46:57.398', NULL, true, 'GY2vvXy6Hc8DwtvY');
