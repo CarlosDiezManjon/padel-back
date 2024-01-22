@@ -2,6 +2,7 @@ const db = require('../config/db')
 const jwt = require('jsonwebtoken')
 const logger = require('../config/logger')
 const { validateUserFromToken } = require('../config/token.validation')
+const moment = require('moment')
 
 exports.getReservasAdmin = async (req, res) => {
   const user = await validateUserFromToken(req, res)
@@ -31,7 +32,7 @@ exports.getReservasUser = async (req, res) => {
 
   try {
     const reservas = await db.any(
-      'SELECT Reservas.*, Pistas.nombre, Pistas.duracion_reserva FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id where usuario_id = $1',
+      "SELECT Reservas.*, Pistas.nombre, Pistas.duracion_reserva, (Reservas.fecha AT TIME ZONE 'UTC') as fecha FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id where usuario_id = $1",
       [user.id],
     )
     res.json({ success: true, reservas })
@@ -50,11 +51,23 @@ exports.getReservaById = async (req, res) => {
 }
 
 exports.createReserva = async (req, res) => {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
+    return
+  }
+  logger.info(
+    'Creando reserva : Usuario ' +
+      user.username +
+      ' Pista ' +
+      req.body.pista_id +
+      ' Fecha ' +
+      req.body.fecha,
+  )
   try {
-    const { usuario_id, fecha, hora_inicio, hora_fin, estado } = req.body
+    const { pista_id, importe, fecha } = req.body
     const reserva = await db.one(
-      'INSERT INTO Reservas (usuario_id, fecha, hora_inicio, hora_fin, estado) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [usuario_id, fecha, hora_inicio, hora_fin, estado],
+      'INSERT INTO Reservas (usuario_id, pista_id, importe, fecha) VALUES ($1, $2, $3, $4) RETURNING *',
+      [user.id, pista_id, importe, fecha],
     )
     res.json({ success: true, message: 'Reserva creada', reserva })
   } catch (error) {
@@ -65,10 +78,10 @@ exports.createReserva = async (req, res) => {
 exports.updateReserva = async (req, res) => {
   try {
     const { id } = req.params
-    const { usuario_id, fecha, hora_inicio, hora_fin, estado } = req.body
+    const { usuario_id, pista_id, importe, fecha } = req.body
     const reserva = await db.one(
-      'UPDATE Reservas SET usuario_id = $2, fecha = $3, hora_inicio = $4, hora_fin = $5, estado = $6 WHERE id = $7 RETURNING *',
-      [usuario_id, fecha, hora_inicio, hora_fin, estado, id],
+      'UPDATE Reservas SET usuario_id = $1,pista_id = $2, importe = $3  fecha = $4 WHERE id = $5 RETURNING *',
+      [usuario_id, pista_id, importe, fecha, id],
     )
     res.json({ success: true, message: 'Reserva actualizada', reserva })
   } catch (error) {
@@ -90,72 +103,52 @@ exports.getParrillaPistas = async (req, res) => {
   try {
     const { fecha } = req.params
     const reservas = await db.any(
-      'SELECT Reservas.*, Pistas.nombre, Pistas.duracion_reserva, Usuarios.username FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id INNER JOIN Usuarios ON Reservas.usuario_id = Usuarios.id WHERE fecha = $1',
+      'SELECT Reservas.*, Pistas.nombre, Pistas.duracion_reserva, Usuarios.username FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id INNER JOIN Usuarios ON Reservas.usuario_id = Usuarios.id WHERE DATE(Reservas.fecha) = $1',
       [fecha],
     )
     const pistas = await db.any('SELECT * FROM Pistas where activo = true ORDER BY nombre ASC')
+    const date = new Date(fecha)
     pistas.forEach((p) => {
-      const date = new Date(fecha)
-      const [startHours, startMinutes, startSeconds] = p.hora_inicio.split(':').map(Number)
-      const [endHours, endMinutes, endSeconds] = p.hora_fin.split(':').map(Number)
+      const [pistaStartHours, pistaStartMinutes] = p.hora_inicio.split(':').map(Number)
+      const [pistaEndHours, pistaEndMinutes] = p.hora_fin.split(':').map(Number)
       const duration = parseFloat(p.duracion_reserva)
 
-      const startTime = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-        startHours,
-        startMinutes,
-      )
-      const endTime = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-        endHours,
-        endMinutes,
-      )
+      const startTime = moment.utc([
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        pistaStartHours,
+        pistaStartMinutes,
+      ])
+      const endTime = moment.utc([
+        date.getUTCFullYear(),
+        date.getUTCMonth(),
+        date.getUTCDate(),
+        pistaEndHours,
+        pistaEndMinutes,
+      ])
 
       p.parrilla = []
 
-      const startDateTime = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-        startTime.getHours(),
-        startTime.getMinutes(),
-      )
-      const endDateTime = new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-        endTime.getHours(),
-        endTime.getMinutes(),
-      )
-
       for (
-        let time = new Date(startDateTime);
-        time < endDateTime;
-        time.setMinutes(time.getMinutes() + duration)
+        let time = moment.utc(startTime);
+        time.isBefore(endTime);
+        time.add(duration, 'minutes')
       ) {
         const slot = {
-          startTime: new Date(time),
-          endTime: new Date(time.getTime() + duration * 60000),
+          startTime: moment.utc(time),
+          endTime: moment.utc(time).add(duration, 'minutes'),
         }
+
         reservas.forEach((r) => {
-          const [reservaHours, reservaMinutes, reservaSeconds] = r.hora.split(':').map(Number)
-          const reservaTime = new Date(
-            date.getFullYear(),
-            date.getMonth(),
-            date.getDate(),
-            reservaHours,
-            reservaMinutes,
-          )
-          if (slot.startTime.getTime() === reservaTime.getTime() && r.pista_id === p.id) {
+          const reservaTime = moment.utc(r.fecha)
+          if (slot.startTime.isSame(reservaTime) && r.pista_id === p.id) {
             slot.reserva = r
           } else {
             slot.reserva = null
           }
         })
+
         p.parrilla.push(slot)
       }
     })

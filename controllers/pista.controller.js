@@ -74,10 +74,11 @@ exports.updatePista = async (req, res) => {
   }
   try {
     const { id } = req.params
-    const { nombre, ubicacion, lat, lon, precio, duracion_reserva } = req.body
+    const { nombre, ubicacion, lat, lon, precio, duracion_reserva, hora_inicio, hora_fin } =
+      req.body
     const pista = await db.one(
-      'UPDATE Pistas SET nombre = $1, ubicacion = $2, lat = $3, lon = $4, precio = $5, duracion_reserva = $6 WHERE activo = TRUE AND id = $7 RETURNING *',
-      [nombre, ubicacion, lat, lon, precio, duracion_reserva, id],
+      'UPDATE Pistas SET nombre = $1, ubicacion = $2, lat = $3, lon = $4, precio = $5, duracion_reserva = $6, hora_inicio = $7, hora_fin = $8 WHERE activo = TRUE AND id = $9 RETURNING *',
+      [nombre, ubicacion, lat, lon, precio, duracion_reserva, hora_inicio, hora_fin, id],
     )
     parseFloatsPista(pista)
     res.json({ success: true, message: 'Pista actualizada', pista })
@@ -89,10 +90,10 @@ exports.updatePista = async (req, res) => {
 exports.deletePista = async (req, res) => {
   try {
     const { id } = req.params
-    const reserva = await db.any('SELECT * FROM Reservas WHERE pista_id = $1 AND estado = $2', [
-      id,
-      'pendiente',
-    ])
+    const reserva = await db.any(
+      "SELECT * FROM Reservas WHERE pista_id = $1 AND fecha >= CURRENT_TIMESTAMP AT TIME ZONE 'UTC'",
+      [id],
+    )
     if (reserva.length === 0) {
       const pista = await db.one('UPDATE Pistas SET activo=FALSE WHERE id = $1 RETURNING *', [id])
       parseFloatsPista(pista)
