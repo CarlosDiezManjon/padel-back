@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken')
 const logger = require('../config/logger')
 const { validateUserFromToken } = require('../config/token.validation')
 const moment = require('moment')
+const { parseFloatsPista } = require('../config/utils')
 
 exports.getReservasAdmin = async (req, res) => {
   const user = await validateUserFromToken(req, res)
@@ -100,12 +101,25 @@ exports.deleteReserva = async (req, res) => {
 }
 
 exports.getParrillaPistas = async (req, res) => {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
+    return
+  }
   try {
     const { fecha } = req.params
-    const reservas = await db.any(
-      'SELECT Reservas.*, Pistas.nombre, Pistas.duracion_reserva, Usuarios.username FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id INNER JOIN Usuarios ON Reservas.usuario_id = Usuarios.id WHERE DATE(Reservas.fecha) = $1',
-      [fecha],
-    )
+    let reservas = []
+    if (user.tipo == 2) {
+      reservas = await db.any(
+        'SELECT Reservas.*, Pistas.nombre, Pistas.duracion_reserva, Usuarios.username FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id INNER JOIN Usuarios ON Reservas.usuario_id = Usuarios.id WHERE DATE(Reservas.fecha) = $1',
+        [fecha],
+      )
+    } else {
+      reservas = await db.any(
+        'SELECT Reservas.id, Reservas.pista_id,Reservas.fecha, Reservas.importe, Pistas.nombre, Pistas.duracion_reserva FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id WHERE DATE(Reservas.fecha) = $1',
+        [fecha],
+      )
+    }
+
     const pistas = await db.any('SELECT * FROM Pistas where activo = true ORDER BY nombre ASC')
     const date = new Date(fecha)
     pistas.forEach((p) => {

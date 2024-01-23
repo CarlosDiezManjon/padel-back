@@ -1,5 +1,6 @@
 const db = require('../config/db')
 const { validateUserFromToken } = require('../config/token.validation')
+const { parseFloatsPista } = require('../config/utils')
 
 exports.getPistas = async (req, res) => {
   const user = await validateUserFromToken(req, res)
@@ -115,12 +116,4 @@ exports.activatePista = async (req, res) => {
   } catch (error) {
     res.status(400).json({ error: error.message })
   }
-}
-
-function parseFloatsPista(pista) {
-  pista.lat = parseFloat(pista.lat)
-  pista.lon = parseFloat(pista.lon)
-  pista.precio = parseFloat(pista.precio)
-  pista.duracion_reserva = parseFloat(pista.duracion_reserva)
-  return pista
 }

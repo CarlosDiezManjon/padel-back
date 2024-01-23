@@ -68,8 +68,17 @@ function cifrarPassword(password) {
   return bcrypt.hash(password, saltRounds)
 }
 
+function parseFloatsPista(pista) {
+  pista.lat = parseFloat(pista.lat)
+  pista.lon = parseFloat(pista.lon)
+  pista.precio = parseFloat(pista.precio)
+  pista.duracion_reserva = parseFloat(pista.duracion_reserva)
+  return pista
+}
+
 module.exports = {
   generarCodigoRegistro,
   sendConfirmationEmail,
   cifrarPassword,
+  parseFloatsPista,
 }
