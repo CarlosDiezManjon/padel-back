@@ -77,7 +77,22 @@ exports.getUserById = async (req, res) => {
     res.json({ success: true, usuario })
   } catch (error) {
     res.status(400).json({
-      error: 'Error al obtener usuario por id.',
+      error: error.message,
+    })
+  }
+}
+
+exports.getSaldo = async (req, res) => {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
+    return
+  }
+  try {
+    const usuario = await db.one('SELECT saldo FROM Usuarios WHERE id = $1', [user.id])
+    res.json({ success: true, saldo: usuario.saldo })
+  } catch (error) {
+    res.status(400).json({
+      error: error.message,
     })
   }
 }

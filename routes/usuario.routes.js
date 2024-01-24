@@ -11,5 +11,6 @@ router.delete('/usuarios/:id', usuarioController.deleteUser)
 router.get('/confirm-usuario/:token', usuarioController.confirmUser)
 router.put('/activar-usuario/:id', usuarioController.activateUser)
 router.get('/perfil', usuarioController.getPerfil)
+router.get('/saldo', usuarioController.getSaldo)
 
 module.exports = router
