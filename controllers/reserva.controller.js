@@ -56,20 +56,10 @@ exports.createReserva = async (req, res) => {
   if (!user) {
     return
   }
-  logger.info(
-    'Creando reserva : Usuario ' +
-      user.username +
-      ' Pista ' +
-      req.body.pista_id +
-      ' Fecha ' +
-      req.body.fecha,
-  )
+  logger.info('Creando reserva : Usuario ' + user.username)
   try {
-    const { pista_id, importe, fecha } = req.body
-    const reserva = await db.one(
-      'INSERT INTO Reservas (usuario_id, pista_id, importe, fecha) VALUES ($1, $2, $3, $4) RETURNING *',
-      [user.id, pista_id, importe, fecha],
-    )
+    const { reservas } = req.body
+    console.log(reservas)
     res.json({ success: true, message: 'Reserva creada', reserva })
   } catch (error) {
     res.status(400).json({ error: error.message })
@@ -152,14 +142,13 @@ exports.getParrillaPistas = async (req, res) => {
         const slot = {
           startTime: moment.utc(time),
           endTime: moment.utc(time).add(duration, 'minutes'),
+          reserva: null,
         }
 
         reservas.forEach((r) => {
           const reservaTime = moment.utc(r.fecha)
           if (slot.startTime.isSame(reservaTime) && r.pista_id === p.id) {
             slot.reserva = r
-          } else {
-            slot.reserva = null
           }
         })
 
