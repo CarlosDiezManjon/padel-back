@@ -42,7 +42,8 @@ CREATE TABLE reservas (
   id SERIAL PRIMARY KEY,
   usuario_id INT NOT NULL,
   pista_id INT NOT NULL,
-  fecha DATE NOT NULL,
+  fecha_inicio timestamp NOT NULL,
+  fecha_fin timestamp NOT NULL
   hora TIME NOT NULL,
   importe DECIMAL(10,2) NOT NULL,
   estado VARCHAR(20) NOT NULL DEFAULT 'pendiente',

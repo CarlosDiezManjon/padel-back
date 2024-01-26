@@ -33,7 +33,7 @@ exports.getReservasUser = async (req, res) => {
 
   try {
     const reservas = await db.any(
-      "SELECT Reservas.*, Pistas.nombre, Pistas.duracion_reserva, (Reservas.fecha AT TIME ZONE 'UTC') as fecha FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id where usuario_id = $1",
+      "SELECT Reservas.*, Pistas.nombre, Pistas.duracion_reserva, (Reservas.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio, (Reservas.fecha_fin AT TIME ZONE 'UTC') as fecha_fin FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id where usuario_id = $1",
       [user.id],
     )
     res.json({ success: true, reservas })
@@ -59,8 +59,30 @@ exports.createReserva = async (req, res) => {
   logger.info('Creando reserva : Usuario ' + user.username)
   try {
     const { reservas } = req.body
-    console.log(reservas)
-    res.json({ success: true, message: 'Reserva creada', reserva })
+    const reservasInsertadas = []
+    for (const reserva of reservas) {
+      const { pista_id, startTime, endTime } = reserva
+      const pista = await db.one('SELECT * FROM Pistas WHERE id = $1', [pista_id])
+      if (pista.activo == false) {
+        return res.status(200).json({ error: 'La pista no está activa' })
+      }
+      const importe_pista = parseFloat(pista.precio)
+      const reservasPista = await db.any(
+        'SELECT * FROM Reservas WHERE pista_id = $1 AND fecha_inicio = $2',
+        [pista_id, startTime],
+      )
+      if (reservasPista.length > 0) {
+        return res.status(200).json({ error: 'La pista ya está reservada' })
+      }
+
+      const reservaInsertada = await db.one(
+        'INSERT INTO Reservas (usuario_id, pista_id, importe, fecha_inicio, fecha_fin, estado) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [user.id, pista_id, importe_pista, startTime, endTime, 'Confirmada'],
+      )
+      reservasInsertadas.push(reservaInsertada)
+    }
+    logger.info('Reserva creada : Usuario ' + user.username)
+    res.json({ success: true, message: 'Reserva creada', reservasInsertadas })
   } catch (error) {
     res.status(400).json({ error: error.message })
   }
@@ -97,18 +119,11 @@ exports.getParrillaPistas = async (req, res) => {
   }
   try {
     const { fecha } = req.params
-    let reservas = []
-    if (user.tipo == 2) {
-      reservas = await db.any(
-        'SELECT Reservas.*, Pistas.nombre, Pistas.duracion_reserva, Usuarios.username FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id INNER JOIN Usuarios ON Reservas.usuario_id = Usuarios.id WHERE DATE(Reservas.fecha) = $1',
-        [fecha],
-      )
-    } else {
-      reservas = await db.any(
-        'SELECT Reservas.id, Reservas.pista_id,Reservas.fecha, Reservas.importe, Pistas.nombre, Pistas.duracion_reserva FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id WHERE DATE(Reservas.fecha) = $1',
-        [fecha],
-      )
-    }
+
+    let reservas = await db.any(
+      "SELECT Reservas.*,(Reservas.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio, (Reservas.fecha_fin AT TIME ZONE 'UTC') as fecha_fin, Pistas.nombre, Pistas.duracion_reserva, Usuarios.username FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id INNER JOIN Usuarios ON Reservas.usuario_id = Usuarios.id WHERE DATE(Reservas.fecha_inicio) = $1",
+      [fecha],
+    )
 
     const pistas = await db.any('SELECT * FROM Pistas where activo = true ORDER BY nombre ASC')
     const date = new Date(fecha)
@@ -143,12 +158,20 @@ exports.getParrillaPistas = async (req, res) => {
           startTime: moment.utc(time),
           endTime: moment.utc(time).add(duration, 'minutes'),
           reserva: null,
+          propia: false,
         }
 
         reservas.forEach((r) => {
-          const reservaTime = moment.utc(r.fecha)
+          const reservaTime = moment.utc(r.fecha_inicio)
           if (slot.startTime.isSame(reservaTime) && r.pista_id === p.id) {
             slot.reserva = r
+            if (user.tipo !== 2) {
+              if (r.usuario_id !== user.id) {
+                delete slot.reserva.username
+              } else {
+                slot.propia = true
+              }
+            }
           }
         })
 

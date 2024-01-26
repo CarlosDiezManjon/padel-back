@@ -92,7 +92,7 @@ exports.deletePista = async (req, res) => {
   try {
     const { id } = req.params
     const reserva = await db.any(
-      "SELECT * FROM Reservas WHERE pista_id = $1 AND fecha >= CURRENT_TIMESTAMP AT TIME ZONE 'UTC'",
+      "SELECT * FROM Reservas WHERE pista_id = $1 AND fecha_fin >= CURRENT_TIMESTAMP AT TIME ZONE 'UTC'",
       [id],
     )
     if (reserva.length === 0) {
