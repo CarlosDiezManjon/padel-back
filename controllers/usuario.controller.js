@@ -26,14 +26,14 @@ exports.createUser = async (req, res) => {
       username,
     ])
     if (userSameUsername) {
-      res.status(400).json({
+      return res.status(400).json({
         error: 'Username ya existe',
       })
     }
     const userSameEmail = await db.oneOrNone('SELECT * FROM Usuarios WHERE email = $1', [email])
     if (userSameEmail) {
       logger.error('Email ya existe')
-      res.status(400).json({
+      return res.status(400).json({
         error: 'Email ya existe',
       })
     }
