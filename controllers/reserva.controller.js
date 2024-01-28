@@ -58,8 +58,14 @@ exports.createReserva = async (req, res) => {
   }
   logger.info('Creando reserva : Usuario ' + user.username)
   try {
-    const { reservas } = req.body
+    const { reservas, importeTotal } = req.body
     const reservasInsertadas = []
+    const saldo = parseFloat(user.saldo)
+
+    if (saldo < importeTotal) {
+      return res.status(200).json({ error: 'Saldo insuficiente' })
+    }
+
     for (const reserva of reservas) {
       const { pista_id, startTime, endTime } = reserva
       const pista = await db.one('SELECT * FROM Pistas WHERE id = $1', [pista_id])
@@ -81,6 +87,16 @@ exports.createReserva = async (req, res) => {
       )
       reservasInsertadas.push(reservaInsertada)
     }
+    let importeTotalInsertado = reservasInsertadas.reduce(
+      (total, reserva) => total + parseFloat(reserva.importe),
+      0,
+    )
+    let saldoActualizado = saldo - importeTotalInsertado
+    await db.one('UPDATE Usuarios SET saldo = $1 WHERE id = $2 RETURNING *', [
+      saldoActualizado,
+      user.id,
+    ])
+
     logger.info('Reserva creada : Usuario ' + user.username)
     res.json({ success: true, message: 'Reserva creada', reservasInsertadas })
   } catch (error) {
