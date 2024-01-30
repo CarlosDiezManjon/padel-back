@@ -287,7 +287,7 @@ exports.confirmUser = async (req, res) => {
     </head>
     <body>
       <h1>Confirmación de correo completada.</h1>
-      <a href='https://www.google.es'>Acceda a la app</a>
+      <a href='https://padel-nbx4.onrender.com'>Acceda a la app</a>
     </body>
     </html>
   `

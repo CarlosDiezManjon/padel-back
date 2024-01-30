@@ -5,129 +5,6 @@ const { validateUserFromToken } = require('../config/token.validation')
 const moment = require('moment')
 const { parseFloatsPista } = require('../config/utils')
 
-exports.getReservasAdmin = async (req, res) => {
-  const user = await validateUserFromToken(req, res)
-  if (!user) {
-    return
-  }
-  if (user.tipo !== 2) {
-    return res.status(401).json({
-      error: 'No tienes permisos para ver usuarios.',
-    })
-  }
-  try {
-    const reservas = await db.any(
-      'SELECT Reservas.*, Pistas.nombre, Pistas.duracion_reserva FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id',
-    )
-    res.json({ success: true, reservas })
-  } catch (error) {
-    res.status(400).json({ error: error.message })
-  }
-}
-
-exports.getReservasUser = async (req, res) => {
-  const user = await validateUserFromToken(req, res)
-  if (!user) {
-    return
-  }
-
-  try {
-    const reservas = await db.any(
-      "SELECT Reservas.*, Pistas.nombre, Pistas.duracion_reserva, (Reservas.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio, (Reservas.fecha_fin AT TIME ZONE 'UTC') as fecha_fin FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id where usuario_id = $1",
-      [user.id],
-    )
-    res.json({ success: true, reservas })
-  } catch (error) {
-    res.status(400).json({ error: error.message })
-  }
-}
-exports.getReservaById = async (req, res) => {
-  try {
-    const { id } = req.params
-    const reserva = await db.one('SELECT * FROM Reservas WHERE id = $1', [id])
-    res.json({ success: true, reserva })
-  } catch (error) {
-    res.status(400).json({ error: error.message })
-  }
-}
-
-exports.createReserva = async (req, res) => {
-  const user = await validateUserFromToken(req, res)
-  if (!user) {
-    return
-  }
-  logger.info('Creando reserva : Usuario ' + user.username)
-  try {
-    const { reservas, importeTotal } = req.body
-    const reservasInsertadas = []
-    const saldo = parseFloat(user.saldo)
-
-    if (saldo < importeTotal) {
-      return res.status(200).json({ error: 'Saldo insuficiente' })
-    }
-
-    for (const reserva of reservas) {
-      const { pista_id, startTime, endTime } = reserva
-      const pista = await db.one('SELECT * FROM Pistas WHERE id = $1', [pista_id])
-      if (pista.activo == false) {
-        return res.status(200).json({ error: 'La pista no está activa' })
-      }
-      const importe_pista = parseFloat(pista.precio)
-      const reservasPista = await db.any(
-        'SELECT * FROM Reservas WHERE pista_id = $1 AND fecha_inicio = $2',
-        [pista_id, startTime],
-      )
-      if (reservasPista.length > 0) {
-        return res.status(200).json({ error: 'La pista ya está reservada' })
-      }
-
-      const reservaInsertada = await db.one(
-        'INSERT INTO Reservas (usuario_id, pista_id, importe, fecha_inicio, fecha_fin, estado) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-        [user.id, pista_id, importe_pista, startTime, endTime, 'Confirmada'],
-      )
-      reservasInsertadas.push(reservaInsertada)
-    }
-    let importeTotalInsertado = reservasInsertadas.reduce(
-      (total, reserva) => total + parseFloat(reserva.importe),
-      0,
-    )
-    let saldoActualizado = saldo - importeTotalInsertado
-    await db.one('UPDATE Usuarios SET saldo = $1 WHERE id = $2 RETURNING *', [
-      saldoActualizado,
-      user.id,
-    ])
-
-    logger.info('Reserva creada : Usuario ' + user.username)
-    res.json({ success: true, message: 'Reserva creada', reservasInsertadas })
-  } catch (error) {
-    res.status(400).json({ error: error.message })
-  }
-}
-
-exports.updateReserva = async (req, res) => {
-  try {
-    const { id } = req.params
-    const { usuario_id, pista_id, importe, fecha } = req.body
-    const reserva = await db.one(
-      'UPDATE Reservas SET usuario_id = $1,pista_id = $2, importe = $3  fecha = $4 WHERE id = $5 RETURNING *',
-      [usuario_id, pista_id, importe, fecha, id],
-    )
-    res.json({ success: true, message: 'Reserva actualizada', reserva })
-  } catch (error) {
-    res.status(400).json({ error: error.message })
-  }
-}
-
-exports.deleteReserva = async (req, res) => {
-  try {
-    const { id } = req.params
-    const reserva = await db.one('DELETE FROM Reservas WHERE id = $1 RETURNING *', [id])
-    res.json({ success: true, message: 'Reserva eliminada', reserva })
-  } catch (error) {
-    res.status(400).json({ error: error.message })
-  }
-}
-
 exports.getParrillaPistas = async (req, res) => {
   const user = await validateUserFromToken(req, res)
   if (!user) {
@@ -137,7 +14,7 @@ exports.getParrillaPistas = async (req, res) => {
     const { fecha } = req.params
 
     let reservas = await db.any(
-      "SELECT Reservas.*,(Reservas.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio, (Reservas.fecha_fin AT TIME ZONE 'UTC') as fecha_fin, Pistas.nombre, Pistas.duracion_reserva, Usuarios.username FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id INNER JOIN Usuarios ON Reservas.usuario_id = Usuarios.id WHERE DATE(Reservas.fecha_inicio) = $1",
+      "SELECT Reservas.*,(Reservas.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio, (Reservas.fecha_fin AT TIME ZONE 'UTC') as fecha_fin, Pistas.nombre, Pistas.duracion_reserva, Usuarios.username FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id INNER JOIN Usuarios ON Reservas.usuario_id = Usuarios.id WHERE DATE(Reservas.fecha_inicio) = $1 AND estado = 'Confirmada'",
       [fecha],
     )
 
@@ -175,6 +52,14 @@ exports.getParrillaPistas = async (req, res) => {
           endTime: moment.utc(time).add(duration, 'minutes'),
           reserva: null,
           propia: false,
+          selected: false,
+          toCancel: false,
+          pista: {
+            id: p.id,
+            nombre: p.nombre,
+            precio: p.precio,
+          },
+          past: time.isBefore(moment.utc()),
         }
 
         reservas.forEach((r) => {
@@ -200,3 +85,186 @@ exports.getParrillaPistas = async (req, res) => {
     res.status(400).json({ error: error.message })
   }
 }
+
+exports.createReservas = async (req, res) => {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
+    return
+  }
+  logger.info('Creando reserva : Usuario ' + user.username)
+  try {
+    const { reservas, importeTotal } = req.body
+    const reservasInsertadas = []
+    const saldo = parseFloat(user.saldo)
+
+    if (saldo < importeTotal) {
+      return res.status(200).json({ error: 'Saldo insuficiente' })
+    }
+
+    for (const reserva of reservas) {
+      const { pista, startTime, endTime } = reserva
+      const { id } = pista
+      const pistaFromDb = await db.one('SELECT * FROM Pistas WHERE id = $1', [id])
+      if (pistaFromDb.activo == false) {
+        return res.status(200).json({ error: 'La pista no está activa' })
+      }
+      const importe_pista = parseFloat(pistaFromDb.precio)
+      const reservasPista = await db.any(
+        'SELECT * FROM Reservas WHERE pista_id = $1 AND fecha_inicio = $2 AND estado = $3',
+        [pistaFromDb.id, startTime, 'Confirmada'],
+      )
+      if (reservasPista.length > 0) {
+        return res.status(200).json({ error: 'La pista ya está reservada' })
+      }
+
+      const reservaInsertada = await db.one(
+        'INSERT INTO Reservas (usuario_id, pista_id, importe, fecha_inicio, fecha_fin, estado) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [user.id, pistaFromDb.id, importe_pista, startTime, endTime, 'Confirmada'],
+      )
+      reservasInsertadas.push(reservaInsertada)
+    }
+    let importeTotalInsertado = reservasInsertadas.reduce(
+      (total, reserva) => total + parseFloat(reserva.importe),
+      0,
+    )
+    let saldoActualizado = saldo - importeTotalInsertado
+    await db.one('UPDATE Usuarios SET saldo = $1 WHERE id = $2 RETURNING *', [
+      saldoActualizado,
+      user.id,
+    ])
+
+    logger.info('Reserva creada : Usuario ' + user.username)
+    res.json({ success: true, message: 'Reserva creada', reservasInsertadas })
+  } catch (error) {
+    res.status(400).json({ error: error.message })
+  }
+}
+
+exports.cancelReservas = async (req, res) => {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
+    return
+  }
+  logger.info('Cancelando reserva : Usuario ' + user.username)
+  try {
+    const { reservas } = req.body
+    const reservasCanceladas = []
+    for (const reserva of reservas) {
+      const { id } = reserva.reserva
+      const reservaFromDb = await db.one('SELECT * FROM Reservas WHERE estado = $1 AND id = $2', [
+        'Confirmada',
+        id,
+      ])
+      if (!reservaFromDb) {
+        return res.status(200).json({ error: 'La reserva no existe' })
+      }
+      if (reservaFromDb.usuario_id !== user.id && user.tipo !== 2) {
+        return res.status(200).json({ error: 'No tienes permisos para cancelar esta reserva' })
+      }
+
+      const now = moment.utc()
+      const reservaStartTime = moment.utc(reservaFromDb.fecha_inicio)
+      const diffInMinutes = reservaStartTime.diff(now, 'minutes')
+      if (diffInMinutes < 60) {
+        return res.status(200).json({
+          error:
+            'No puedes cancelar esta reserva menos de 1 hora antes. ' +
+            reserva.pista.nombre +
+            ' ' +
+            reservaStartTime.format('HH:mm'),
+        })
+      }
+
+      const reservaCancelada = await db.one(
+        'UPDATE Reservas SET estado = $1 WHERE id = $2 RETURNING *',
+        ['Cancelada', reservaFromDb.id],
+      )
+      reservasCanceladas.push(reservaCancelada)
+    }
+    let importeTotalCancelado = reservasCanceladas.reduce(
+      (total, reserva) => total + parseFloat(reserva.importe),
+      0,
+    )
+    let saldoActualizado = parseFloat(user.saldo) + importeTotalCancelado
+    await db.one('UPDATE Usuarios SET saldo = $1 WHERE id = $2 RETURNING *', [
+      saldoActualizado,
+      user.id,
+    ])
+
+    logger.info('Reserva cancelada : Usuario ' + user.username)
+    res.json({ success: true, message: 'Reserva cancelada', reservasCanceladas })
+  } catch (error) {
+    res.status(400).json({ error: error.message })
+  }
+}
+
+exports.getReservasUser = async (req, res) => {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
+    return
+  }
+
+  try {
+    const reservas = await db.any(
+      "SELECT Reservas.*, Pistas.nombre, Pistas.duracion_reserva, (Reservas.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio, (Reservas.fecha_fin AT TIME ZONE 'UTC') as fecha_fin FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id where usuario_id = $1",
+      [user.id],
+    )
+    res.json({ success: true, reservas })
+  } catch (error) {
+    res.status(400).json({ error: error.message })
+  }
+}
+
+// exports.getReservasAdmin = async (req, res) => {
+//   const user = await validateUserFromToken(req, res)
+//   if (!user) {
+//     return
+//   }
+//   if (user.tipo !== 2) {
+//     return res.status(401).json({
+//       error: 'No tienes permisos para ver usuarios.',
+//     })
+//   }
+//   try {
+//     const reservas = await db.any(
+//       'SELECT Reservas.*, Pistas.nombre, Pistas.duracion_reserva FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id',
+//     )
+//     res.json({ success: true, reservas })
+//   } catch (error) {
+//     res.status(400).json({ error: error.message })
+//   }
+// }
+
+// exports.getReservaById = async (req, res) => {
+//   try {
+//     const { id } = req.params
+//     const reserva = await db.one('SELECT * FROM Reservas WHERE id = $1', [id])
+//     res.json({ success: true, reserva })
+//   } catch (error) {
+//     res.status(400).json({ error: error.message })
+//   }
+// }
+
+// exports.updateReserva = async (req, res) => {
+//   try {
+//     const { id } = req.params
+//     const { usuario_id, pista_id, importe, fecha } = req.body
+//     const reserva = await db.one(
+//       'UPDATE Reservas SET usuario_id = $1,pista_id = $2, importe = $3  fecha = $4 WHERE id = $5 RETURNING *',
+//       [usuario_id, pista_id, importe, fecha, id],
+//     )
+//     res.json({ success: true, message: 'Reserva actualizada', reserva })
+//   } catch (error) {
+//     res.status(400).json({ error: error.message })
+//   }
+// }
+
+// exports.deleteReserva = async (req, res) => {
+//   try {
+//     const { id } = req.params
+//     const reserva = await db.one('DELETE FROM Reservas WHERE id = $1 RETURNING *', [id])
+//     res.json({ success: true, message: 'Reserva eliminada', reserva })
+//   } catch (error) {
+//     res.status(400).json({ error: error.message })
+//   }
+// }
