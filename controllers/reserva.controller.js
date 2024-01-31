@@ -1,9 +1,7 @@
 const db = require('../config/db')
-const jwt = require('jsonwebtoken')
 const logger = require('../config/logger')
 const { validateUserFromToken } = require('../config/token.validation')
 const moment = require('moment')
-const { parseFloatsPista } = require('../config/utils')
 
 exports.getParrillaPistas = async (req, res) => {
   const user = await validateUserFromToken(req, res)
@@ -82,6 +80,7 @@ exports.getParrillaPistas = async (req, res) => {
 
     res.json({ success: true, pistas })
   } catch (error) {
+    logger.error(error)
     res.status(400).json({ error: error.message })
   }
 }
@@ -122,6 +121,26 @@ exports.createReservas = async (req, res) => {
         [user.id, pistaFromDb.id, importe_pista, startTime, endTime, 'Confirmada'],
       )
       reservasInsertadas.push(reservaInsertada)
+
+      const movimiento = {
+        usuario_id: user.id,
+        reserva_id: reservaInsertada.id,
+        motivo: 'Reserva',
+        importe: importe_pista,
+        fecha: moment.utc().format('YYYY-MM-DD HH:mm'),
+        tipo: 'Gasto',
+      }
+      await db.one(
+        'INSERT INTO Movimientos (usuario_id, reserva_id, motivo, importe, fecha, tipo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [
+          movimiento.usuario_id,
+          movimiento.reserva_id,
+          movimiento.motivo,
+          movimiento.importe,
+          movimiento.fecha,
+          movimiento.tipo,
+        ],
+      )
     }
     let importeTotalInsertado = reservasInsertadas.reduce(
       (total, reserva) => total + parseFloat(reserva.importe),
@@ -136,6 +155,7 @@ exports.createReservas = async (req, res) => {
     logger.info('Reserva creada : Usuario ' + user.username)
     res.json({ success: true, message: 'Reserva creada', reservasInsertadas })
   } catch (error) {
+    logger.error(error)
     res.status(400).json({ error: error.message })
   }
 }
@@ -180,6 +200,26 @@ exports.cancelReservas = async (req, res) => {
         ['Cancelada', reservaFromDb.id],
       )
       reservasCanceladas.push(reservaCancelada)
+
+      const movimiento = {
+        usuario_id: user.id,
+        reserva_id: reservaCancelada.id,
+        motivo: 'Cancelación',
+        importe: reservaCancelada.importe,
+        fecha: moment.utc().format('YYYY-MM-DD HH:mm'),
+        tipo: 'Ingreso',
+      }
+      await db.one(
+        'INSERT INTO Movimientos (usuario_id, reserva_id, motivo, importe, fecha, tipo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [
+          movimiento.usuario_id,
+          movimiento.reserva_id,
+          movimiento.motivo,
+          movimiento.importe,
+          movimiento.fecha,
+          movimiento.tipo,
+        ],
+      )
     }
     let importeTotalCancelado = reservasCanceladas.reduce(
       (total, reserva) => total + parseFloat(reserva.importe),
@@ -194,6 +234,7 @@ exports.cancelReservas = async (req, res) => {
     logger.info('Reserva cancelada : Usuario ' + user.username)
     res.json({ success: true, message: 'Reserva cancelada', reservasCanceladas })
   } catch (error) {
+    logger.error(error)
     res.status(400).json({ error: error.message })
   }
 }

@@ -1,6 +1,7 @@
 const db = require('../config/db')
 const { validateUserFromToken } = require('../config/token.validation')
 const { parseFloatsPista } = require('../config/utils')
+const logger = require('../config/logger')
 
 exports.getPistas = async (req, res) => {
   const user = await validateUserFromToken(req, res)
@@ -20,6 +21,7 @@ exports.getPistas = async (req, res) => {
     })
     res.json({ success: true, pistas })
   } catch (error) {
+    logger.error(error)
     res.status(400).json({ error: error.message })
   }
 }
@@ -35,6 +37,7 @@ exports.getPistaById = async (req, res) => {
     parseFloatsPista(pista)
     res.json({ success: true, pista })
   } catch (error) {
+    logger.error(error)
     res.status(400).json({ error: error.message })
   }
 }
@@ -59,6 +62,7 @@ exports.createPista = async (req, res) => {
     parseFloatsPista(pista)
     res.json({ success: true, message: 'Pista creada', pista })
   } catch (error) {
+    logger.error(error)
     res.status(400).json({ error: error.message })
   }
 }
@@ -84,6 +88,7 @@ exports.updatePista = async (req, res) => {
     parseFloatsPista(pista)
     res.json({ success: true, message: 'Pista actualizada', pista })
   } catch (error) {
+    logger.error(error)
     res.status(400).json({ error: error.message })
   }
 }
@@ -103,6 +108,7 @@ exports.deletePista = async (req, res) => {
       res.status(400).json({ error: 'Hay reservas pendientes aún.' })
     }
   } catch (error) {
+    logger.error(error)
     res.status(400).json({ error: error.message })
   }
 }
@@ -114,6 +120,7 @@ exports.activatePista = async (req, res) => {
     parseFloatsPista(pista)
     res.json({ success: true, message: 'Pista activada', pista })
   } catch (error) {
+    logger.error(error)
     res.status(400).json({ error: error.message })
   }
 }

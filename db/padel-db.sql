@@ -60,4 +60,16 @@ CREATE TABLE pagos (
   FOREIGN KEY (reserva_id) REFERENCES reservas (id)
 );
 
+CREATE TABLE movimientos (
+  id SERIAL PRIMARY KEY,
+  usuario_id INT NOT NULL,
+  reserva_id INT NOT NULL,
+  motivo VARCHAR(20) NOT NULL,
+  importe DECIMAL(10,2) NOT NULL,
+  tipo VARCHAR(20) NOT NULL,
+  fecha TIMESTAMP NOT NULL,
+  FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
+  FOREIGN KEY (reserva_id) REFERENCES reservas (id)
+)
+
 INSERT INTO usuarios (id, username, nombre, apellidos, email, telefono, "password", saldo, tipo, fecha_alta, fecha_baja, activo, token_activacion) VALUES(13, 'charlesmcmahon', 'Carlos', 'Díez', 'cdiez1995@gmail.com', '645773320', '$2b$10$65DXZ7mQrblDL95fEeUyduRBOI2mHXF6j0OhNc3MdZe9kmIoMPUTS', 0.00, 2, '2024-01-14 19:46:57.398', NULL, true, 'GY2vvXy6Hc8DwtvY');
