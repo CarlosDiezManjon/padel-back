@@ -202,7 +202,7 @@ exports.cancelReservas = async (req, res) => {
       reservasCanceladas.push(reservaCancelada)
 
       const movimiento = {
-        usuario_id: user.id,
+        usuario_id: reservaCancelada.usuario_id,
         reserva_id: reservaCancelada.id,
         motivo: 'Cancelación',
         importe: reservaCancelada.importe,

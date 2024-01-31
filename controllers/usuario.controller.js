@@ -125,7 +125,7 @@ exports.login = async (req, res) => {
     })
     res.json({ success: true, token: token })
   } catch (error) {
-    res.status(400).json({ error: 'Usuario o contraseña incorrectos.' })
+    res.status(400).json({ error: 'Error de conexión' })
   }
 }
 
