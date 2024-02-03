@@ -78,7 +78,7 @@ CREATE TABLE movimientos (
   FOREIGN KEY (reserva_id) REFERENCES reservas (id)
 );
 
-INSERT INTO usuarios (id, username, nombre, apellidos, email, telefono, password, saldo, tipo, fecha_alta, fecha_baja, activo, token_activacion) VALUES(1, 'charlesmcmahon', 'Carlos', 'Díez Manjón', 'cdiez1995@gmail.com', '645773320', '$2b$10$65DXZ7mQrblDL95fEeUyduRBOI2mHXF6j0OhNc3MdZe9kmIoMPUTS', 0.00, 2, '2024-01-14 19:46:57.398', NULL, true, 'GY2vvXy6Hc8DwtvY');
+INSERT INTO usuarios (id, username, nombre, apellidos, email, telefono, password, saldo, tipo, fecha_alta, fecha_baja, activo, token_activacion) VALUES(1, 'charlesmcmahon', 'Carlos', 'Díez Manjón', 'cdiez1995@gmail.com', '645773320', '$2b$10$65DXZ7mQrblDL95fEeUyduRBOI2mHXF6j0OhNc3MdZe9kmIoMPUTS', 0.00, 0, '2024-01-14 19:46:57.398', NULL, true, 'GY2vvXy6Hc8DwtvY');
 
 insert into tarifas(id, nombre, tipo_dia, hora_inicio, hora_fin, precio, activo, tipo_usuario) values(1, 'Socio Mañana', 'SEMANA', '09:00', '14:00', 7.00, true, 1);
 

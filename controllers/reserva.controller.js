@@ -3,6 +3,8 @@ const logger = require('../config/logger')
 const { validateUserFromToken } = require('../config/token.validation')
 const moment = require('moment')
 
+const { sendReservaEmail, sendCancelacionEmail } = require('../config/utils')
+
 exports.getParrillaPistas = async (req, res) => {
   const user = await validateUserFromToken(req, res)
   if (!user) {
@@ -137,9 +139,23 @@ exports.createReservas = async (req, res) => {
         return res.status(200).json({ error: 'La pista ya está reservada' })
       }
 
+      let motivo = null
+      if (user.tipo === 0) {
+        motivo = req.body.motivo
+      }
+
       const reservaInsertada = await db.one(
-        'INSERT INTO Reservas (usuario_id, pista_id,tarifa_id, importe, fecha_inicio, fecha_fin, estado) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-        [user.id, pistaFromDb.id, tarifa.id, tarifa.precio, startTime, endTime, 'Confirmada'],
+        'INSERT INTO Reservas (usuario_id, pista_id,tarifa_id, importe, fecha_inicio, fecha_fin, estado, motivo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+        [
+          user.id,
+          pistaFromDb.id,
+          tarifa.id,
+          tarifa.precio,
+          startTime,
+          endTime,
+          'Confirmada',
+          motivo,
+        ],
       )
       reservasInsertadas.push(reservaInsertada)
 
@@ -162,6 +178,7 @@ exports.createReservas = async (req, res) => {
           movimiento.tipo,
         ],
       )
+      sendReservaEmail(user.email, user.nombre, reservaInsertada.fecha_inicio, pistaFromDb.nombre)
     }
     let importeTotalInsertado = reservasInsertadas.reduce(
       (total, reserva) => total + parseFloat(reserva.importe),
@@ -249,6 +266,15 @@ exports.cancelReservas = async (req, res) => {
         saldoActualizado,
         usuarioCancelacion.id,
       ])
+      const pistaFromDb = await db.one('SELECT * FROM Pistas WHERE id = $1', [
+        reservaCancelada.pista_id,
+      ])
+      sendCancelacionEmail(
+        usuarioCancelacion.email,
+        usuarioCancelacion.nombre,
+        reservaCancelada.fecha_inicio,
+        pistaFromDb.nombre,
+      )
     }
 
     logger.info('Reserva cancelada : Usuario ' + user.username)

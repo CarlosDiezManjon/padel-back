@@ -10,7 +10,7 @@ exports.getTarifas = async (req, res) => {
     return
   }
   try {
-    const tarifas = await db.any('SELECT * FROM Tarifas')
+    const tarifas = await db.any('SELECT * FROM Tarifas ORDER BY id ASC')
     return res.status(200).json({ success: true, tarifas })
   } catch (error) {
     logger.error(error)

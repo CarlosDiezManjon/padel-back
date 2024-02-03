@@ -2,6 +2,44 @@ const crypto = require('crypto')
 const nodemailer = require('nodemailer')
 const bcrypt = require('bcrypt')
 const logger = require('./logger')
+const constants = require('./constants')
+const moment = require('moment-timezone')
+
+const {
+  confirmacionRegistroTemplate,
+  reservaTemplate,
+  cancelacionTemplate,
+} = require('./mailTemplates')
+
+function dateUTCToLocalTime(date) {
+  if (!date) {
+    return ''
+  }
+
+  const utcDate = moment.utc(date)
+  const localDateStr = utcDate.tz('Europe/Madrid').format('HH:mm')
+
+  return localDateStr
+}
+
+function dateUTCToLocalDateOnly(date) {
+  if (!date) {
+    return ''
+  }
+
+  const utcDate = moment.utc(date)
+  const localDateStr = utcDate.tz('Europe/Madrid').format('DD MM YYYY')
+
+  return localDateStr
+}
+
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: 'noreply.padel.app@gmail.com',
+    pass: 'devo oqyr qpjd uhpe',
+  },
+})
 
 function generarCodigoRegistro() {
   const caracteresPermitidos = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
@@ -24,61 +62,69 @@ function remplazarParametros(plantilla, parametros) {
   return plantilla
 }
 
-function sendConfirmationEmail(to_address, tokenConfirmacion) {
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: 'noreply.padel.app@gmail.com',
-      pass: 'devo oqyr qpjd uhpe',
-    },
-  })
+function sendEmail(mailOptions) {
   return new Promise((resolve, reject) => {
-    const htmlTemplate = `<!doctype html>
-    <head>
-        <style>
-          body {
-            background: "linear-gradient(#404040, #171717);"
-          }
-
-          h1 {
-            text-align: center;
-            color: white;
-          }
-          p {
-            text-align: center;
-            color: white;
-          }
-        </style>
-      </head>
-        <body >
-        <h1>Confirmación de email</h1>
-        <p>
-        https://padel-back.onrender.com/confirm-usuario/{{tokenConfirmacion}}
-        </p>
-        </body>
-        </html>`
-    const parametros = {
-      tokenConfirmacion: tokenConfirmacion,
-    }
-    const html = remplazarParametros(htmlTemplate, parametros)
-
-    const mailOptions = {
-      from: 'noreply.padel.app@gmail.com',
-      to: to_address,
-      subject: 'PadelApp Email Confirmation',
-      html: html,
-    }
-
     transporter.sendMail(mailOptions, (error, info) => {
       if (error) {
         logger.error('Error sending email:', error)
         reject(false)
       } else {
-        logger.info('Email sent:', to_address)
+        logger.info('Email sent:', mailOptions.to)
         resolve(true)
       }
     })
   })
+}
+
+function sendConfirmationEmail(to_address, tokenConfirmacion) {
+  const parametros = {
+    tokenConfirmacion: tokenConfirmacion,
+  }
+  const html = remplazarParametros(confirmacionRegistroTemplate, parametros)
+
+  const mailOptions = {
+    from: constants.EMAIL,
+    to: to_address,
+    subject: 'PadelApp Email Confirmation',
+    html: html,
+  }
+  return sendEmail(mailOptions)
+}
+
+function sendReservaEmail(to_address, nombre, fecha, pista) {
+  const parametros = {
+    nombre: nombre,
+    fecha: dateUTCToLocalDateOnly(fecha),
+    hora: dateUTCToLocalTime(fecha),
+    pista: pista,
+  }
+  const html = remplazarParametros(reservaTemplate, parametros)
+
+  const mailOptions = {
+    from: constants.EMAIL,
+    to: to_address,
+    subject: 'Reserva confirmada',
+    html: html,
+  }
+  return sendEmail(mailOptions)
+}
+
+function sendCancelacionEmail(to_address, nombre, fecha, pista) {
+  const parametros = {
+    nombre: nombre,
+    fecha: dateUTCToLocalDateOnly(fecha),
+    hora: dateUTCToLocalTime(fecha),
+    pista: pista,
+  }
+  const html = remplazarParametros(cancelacionTemplate, parametros)
+
+  const mailOptions = {
+    from: constants.EMAIL,
+    to: to_address,
+    subject: 'Cancelación de reserva',
+    html: html,
+  }
+  return sendEmail(mailOptions)
 }
 
 function cifrarPassword(password) {
@@ -99,4 +145,6 @@ module.exports = {
   sendConfirmationEmail,
   cifrarPassword,
   parseFloatsPista,
+  sendReservaEmail,
+  sendCancelacionEmail,
 }

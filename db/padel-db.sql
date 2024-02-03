@@ -52,6 +52,7 @@ CREATE TABLE reservas (
   importe DECIMAL(10,2) NOT NULL,
   tarifa_id INT NOT NULL,
   estado VARCHAR(20) NOT NULL DEFAULT 'Confirmada',
+  motivo VARCHAR(30) NULL,
   FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
   FOREIGN KEY (pista_id) REFERENCES pistas (id),
   FOREIGN KEY (tarifa_id) REFERENCES tarifas (id)

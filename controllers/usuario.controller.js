@@ -3,12 +3,11 @@ const db = require('../config/db')
 const jwt = require('jsonwebtoken')
 const logger = require('../config/logger')
 const bcrypt = require('bcrypt')
-const moment = require('moment')
 
 const { generarCodigoRegistro, sendConfirmationEmail, cifrarPassword } = require('../config/utils')
-
 const { validateUserFromToken } = require('../config/token.validation')
 const constants = require('../config/constants')
+const { confirmacionRegistroTemplate } = require('../config/mailTemplates')
 
 exports.registro = async (req, res) => {
   logger.info('Creando usuario ' + req.body.username)
@@ -190,9 +189,13 @@ exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params
     const { username, nombre, apellidos, email, telefono, tipo, saldo } = req.body
+    let numero_socio = req.body.numero_socio
+    if (tipo !== 1) {
+      numero_socio = null
+    }
     const usuario = await db.one(
-      'UPDATE Usuarios SET username = $1, nombre = $2, apellidos = $3, email = $4, telefono = $5, tipo = $6, saldo = $7 WHERE id = $8 RETURNING *',
-      [username, nombre, apellidos, email, telefono, tipo, saldo, id],
+      'UPDATE Usuarios SET username = $1, nombre = $2, apellidos = $3, email = $4, telefono = $5, tipo = $6, saldo = $7, numero_socio = $8 WHERE id = $9 RETURNING *',
+      [username, nombre, apellidos, email, telefono, tipo, saldo, numero_socio, id],
     )
     res.json({ success: true, message: 'Usuario actualizado', usuario })
   } catch (error) {
@@ -207,7 +210,7 @@ exports.getPerfil = async (req, res) => {
   }
   try {
     const usuario = await db.one(
-      'SELECT id, username, nombre, apellidos, email,telefono, saldo, tipo,fecha_alta, fecha_baja, activo FROM Usuarios WHERE id = $1',
+      'SELECT id, username, nombre, apellidos, email, telefono, saldo, tipo,fecha_alta, fecha_baja, activo, email_verificado, numero_socio FROM Usuarios WHERE id = $1',
       [user.id],
     )
     res.json({ success: true, usuario })
@@ -230,26 +233,13 @@ exports.confirmUser = async (req, res) => {
       })
     }
     const usuario = await db.one(
-      'UPDATE Usuarios SET activo = true WHERE token_activacion = $1 RETURNING *',
+      'UPDATE Usuarios SET activo = true AND email_verificado = true WHERE token_activacion = $1 RETURNING *',
       [token],
     )
-    const contenidoHTML = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Confirmación de cuenta PADELAPP</title>
-    </head>
-    <body>
-      <h1>Confirmación de correo completada.</h1>
-      <a href='https://padel-nbx4.onrender.com'>Acceda a la app</a>
-    </body>
-    </html>
-  `
+
     if (usuario) {
       res.setHeader('Content-Type', 'text/html')
-      res.send(contenidoHTML)
+      res.send(confirmacionRegistroTemplate)
     } else {
       res.status(400).json({
         error: 'Error al confirmar el usuario.',
@@ -264,7 +254,7 @@ exports.getUserById = async (req, res) => {
   const { id } = req.params
   try {
     const usuario = await db.one(
-      'SELECT id, username, nombre, apellidos, email,telefono, saldo, tipo,fecha_alta, fecha_baja, activo FROM Usuarios WHERE id = $1',
+      'SELECT id, username, nombre, apellidos, email,telefono, saldo, tipo,fecha_alta, fecha_baja, activo, numero_socio FROM Usuarios WHERE id = $1',
       [id],
     )
 
