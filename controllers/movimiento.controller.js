@@ -2,15 +2,13 @@ const db = require('../config/db')
 const jwt = require('jsonwebtoken')
 const logger = require('../config/logger')
 const { validateUserFromToken } = require('../config/token.validation')
-const moment = require('moment')
-const { parseFloatsPista } = require('../config/utils')
 
 exports.getMovimientos = async (req, res) => {
+  const usuario = await validateUserFromToken(req)
+  if (!usuario) {
+    return
+  }
   try {
-    const usuario = await validateUserFromToken(req)
-    if (!usuario) {
-      return
-    }
     const movimientos = await db.any(
       `SELECT m.*, r.fecha_inicio as fecha_reserva, p.nombre AS nombre_pista
              FROM Movimientos m

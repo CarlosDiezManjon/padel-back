@@ -34,8 +34,26 @@ function sendConfirmationEmail(to_address, tokenConfirmacion) {
   })
   return new Promise((resolve, reject) => {
     const htmlTemplate = `<!doctype html>
-        <!-- Rest of your HTML template... -->
-        http://localhost:3000/confirm-usuario/{{tokenConfirmacion}}
+    <head>
+        <style>
+          body {
+            background: "linear-gradient(#404040, #171717);"
+          }
+
+          h1 {
+            text-align: center;
+            color: white;
+          }
+          p {
+            text-align: center;
+            color: white;
+          }
+        </style>
+      </head>
+        <body >
+        <h1>Confirmación de email</h1>
+        <p>
+        https://padel-back.onrender.com/confirm-usuario/{{tokenConfirmacion}}
         </p>
         </body>
         </html>`

@@ -12,7 +12,13 @@ if (process.env.NODE_ENV === 'production') {
     ssl: { rejectUnauthorized: false },
   })
 } else {
-  db = pgp('postgres://postgres:postgres@localhost:5432/padelDB')
+  db = pgp({
+    host: 'localhost',
+    port: 5432,
+    database: 'padelDB',
+    user: 'padelback',
+    password: 'padelback',
+  })
 }
 
 module.exports = db

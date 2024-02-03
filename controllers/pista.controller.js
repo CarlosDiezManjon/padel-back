@@ -9,16 +9,8 @@ exports.getPistas = async (req, res) => {
     return
   }
   try {
-    let pistas = []
-    if (user.tipo !== 2) {
-      pistas = await db.any('SELECT * FROM Pistas WHERE activo = TRUE ORDER BY nombre ASC')
-    } else {
-      pistas = await db.any('SELECT * FROM Pistas ORDER BY activo DESC, nombre ASC')
-    }
-
-    pistas.forEach((pista) => {
-      parseFloatsPista(pista)
-    })
+    const pistas = await db.any('SELECT * FROM Pistas WHERE activo = TRUE')
+    pistas.forEach(parseFloatsPista)
     res.json({ success: true, pistas })
   } catch (error) {
     logger.error(error)
@@ -47,17 +39,17 @@ exports.createPista = async (req, res) => {
   if (!user) {
     return
   }
-  if (user.tipo !== 2) {
+  if (user.tipo !== 0) {
     return res.status(401).json({
       error: 'No tienes permisos para crear pistas.',
     })
   }
   try {
     //TODO ver como hacer lo de la ubicacion lat lon
-    const { nombre, ubicacion, precio, duracion_reserva } = req.body
+    const { nombre, ubicacion, duracion_reserva, hora_inicio, hora_fin } = req.body
     const pista = await db.one(
-      'INSERT INTO Pistas(nombre, ubicacion, precio, duracion_reserva) VALUES($1, $2, $3, $4) RETURNING *',
-      [nombre, ubicacion, precio, duracion_reserva],
+      'INSERT INTO Pistas(nombre, ubicacion, duracion_reserva, hora_inicio, hora_fin) VALUES($1, $2, $3, $4, $5) RETURNING *',
+      [nombre, ubicacion, duracion_reserva, hora_inicio, hora_fin],
     )
     parseFloatsPista(pista)
     res.json({ success: true, message: 'Pista creada', pista })
@@ -72,7 +64,7 @@ exports.updatePista = async (req, res) => {
   if (!user) {
     return
   }
-  if (user.tipo !== 2) {
+  if (user.tipo !== 0) {
     return res.status(401).json({
       error: 'No tienes permisos para actualizar pistas.',
     })
@@ -93,7 +85,7 @@ exports.updatePista = async (req, res) => {
   }
 }
 
-exports.deletePista = async (req, res) => {
+exports.deactivatePista = async (req, res) => {
   try {
     const { id } = req.params
     const reserva = await db.any(
