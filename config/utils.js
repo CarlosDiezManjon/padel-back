@@ -9,6 +9,9 @@ const {
   confirmacionRegistroTemplate,
   reservaTemplate,
   cancelacionTemplate,
+  emailRegistroTemplate,
+  registroTemplate,
+  cambioEmailTemplate,
 } = require('./mailTemplates')
 
 function dateUTCToLocalTime(date) {
@@ -76,16 +79,34 @@ function sendEmail(mailOptions) {
   })
 }
 
-function sendConfirmationEmail(to_address, tokenConfirmacion) {
+function sendRegistroEmail(to_address, tokenConfirmacion) {
   const parametros = {
     tokenConfirmacion: tokenConfirmacion,
+    baseUrl: constants.BASE_URL_BACK,
   }
-  const html = remplazarParametros(confirmacionRegistroTemplate, parametros)
+  const html = remplazarParametros(registroTemplate, parametros)
 
   const mailOptions = {
     from: constants.EMAIL,
     to: to_address,
     subject: 'PadelApp Email Confirmation',
+    html: html,
+  }
+  return sendEmail(mailOptions)
+}
+
+function sendEmailChangeEmail(to_address, tokenConfirmacion, nombre) {
+  const parametros = {
+    tokenConfirmacion: tokenConfirmacion,
+    baseUrl: constants.BASE_URL_FRONT,
+    nombre: nombre,
+  }
+  const html = remplazarParametros(cambioEmailTemplate, parametros)
+
+  const mailOptions = {
+    from: constants.EMAIL,
+    to: to_address,
+    subject: 'PadelApp Email Change',
     html: html,
   }
   return sendEmail(mailOptions)
@@ -142,9 +163,13 @@ function parseFloatsPista(pista) {
 
 module.exports = {
   generarCodigoRegistro,
-  sendConfirmationEmail,
+  sendRegistroEmail,
   cifrarPassword,
   parseFloatsPista,
   sendReservaEmail,
   sendCancelacionEmail,
+  dateUTCToLocalDateOnly,
+  dateUTCToLocalTime,
+  remplazarParametros,
+  sendEmailChangeEmail,
 }

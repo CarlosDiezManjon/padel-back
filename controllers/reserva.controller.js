@@ -3,7 +3,12 @@ const logger = require('../config/logger')
 const { validateUserFromToken } = require('../config/token.validation')
 const moment = require('moment')
 
-const { sendReservaEmail, sendCancelacionEmail } = require('../config/utils')
+const {
+  sendReservaEmail,
+  sendCancelacionEmail,
+  dateUTCToLocalDateOnly,
+  dateUTCToLocalTime,
+} = require('../config/utils')
 
 exports.getParrillaPistas = async (req, res) => {
   const user = await validateUserFromToken(req, res)
@@ -145,7 +150,7 @@ exports.createReservas = async (req, res) => {
       }
 
       const reservaInsertada = await db.one(
-        'INSERT INTO Reservas (usuario_id, pista_id,tarifa_id, importe, fecha_inicio, fecha_fin, estado, motivo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+        "INSERT INTO Reservas (usuario_id, pista_id,tarifa_id, importe, fecha_inicio, fecha_fin, estado, motivo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *, fecha_inicio AT TIME ZONE 'UTC' as fecha_inicio",
         [
           user.id,
           pistaFromDb.id,
@@ -209,10 +214,10 @@ exports.cancelReservas = async (req, res) => {
     const reservasCanceladas = []
     for (const reserva of reservas) {
       const { id } = reserva.reserva
-      const reservaFromDb = await db.one('SELECT * FROM Reservas WHERE estado = $1 AND id = $2', [
-        'Confirmada',
-        id,
-      ])
+      const reservaFromDb = await db.one(
+        `SELECT r.*, (r.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio FROM Reservas r WHERE estado = $1 AND id = $2`,
+        ['Confirmada', id],
+      )
       if (!reservaFromDb) {
         return res.status(200).json({ error: 'La reserva no existe' })
       }
@@ -229,12 +234,12 @@ exports.cancelReservas = async (req, res) => {
             'No puedes cancelar esta reserva menos de 1 hora antes. ' +
             reserva.pista.nombre +
             ' ' +
-            reservaStartTime.format('HH:mm'),
+            dateUTCToLocalTime(reservaStartTime),
         })
       }
 
       const reservaCancelada = await db.one(
-        'UPDATE Reservas SET estado = $1 WHERE id = $2 RETURNING *',
+        "UPDATE Reservas SET estado = $1 WHERE id = $2 RETURNING *, fecha_inicio AT TIME ZONE 'UTC' as fecha_inicio",
         ['Cancelada', reservaFromDb.id],
       )
       reservasCanceladas.push(reservaCancelada)

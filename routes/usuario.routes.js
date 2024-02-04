@@ -12,5 +12,9 @@ router.get('/confirm-usuario/:token', usuarioController.confirmUser)
 router.put('/activar-usuario/:id', usuarioController.activateUser)
 router.get('/perfil', usuarioController.getPerfil)
 router.get('/saldo', usuarioController.getSaldo)
+router.put('/saldo', usuarioController.updateSaldo)
+router.put('/cambiar-password', usuarioController.cambiarPassword)
+router.put('/cambiar-email', usuarioController.cambiarEmail)
+router.get('/confirm-email/:token', usuarioController.confirmEmail)
 
 module.exports = router

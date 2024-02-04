@@ -4,7 +4,12 @@ const jwt = require('jsonwebtoken')
 const logger = require('../config/logger')
 const bcrypt = require('bcrypt')
 
-const { generarCodigoRegistro, sendConfirmationEmail, cifrarPassword } = require('../config/utils')
+const {
+  generarCodigoRegistro,
+  sendConfirmationEmail,
+  cifrarPassword,
+  sendEmailChangeEmail,
+} = require('../config/utils')
 const { validateUserFromToken } = require('../config/token.validation')
 const constants = require('../config/constants')
 const { confirmacionRegistroTemplate } = require('../config/mailTemplates')
@@ -50,7 +55,7 @@ exports.registro = async (req, res) => {
         tokenConfirmacion,
       ],
     )
-    const emailSent = await sendConfirmationEmail(email, tokenConfirmacion)
+    const emailSent = await sendRegistroEmail(email, tokenConfirmacion)
     if (emailSent) {
       const { password: passwordToIgnore, ...userWithoutPassword } = usuario
       res.json({ success: true, userWithoutPassword })
@@ -236,10 +241,15 @@ exports.confirmUser = async (req, res) => {
       'UPDATE Usuarios SET activo = true AND email_verificado = true WHERE token_activacion = $1 RETURNING *',
       [token],
     )
+    const parametros = {
+      baseUrl: constants.BASE_URL_BACK,
+      nombre: usuario.nombre,
+    }
+    const html = remplazarParametros(confirmacionRegistroTemplate, parametros)
 
     if (usuario) {
       res.setHeader('Content-Type', 'text/html')
-      res.send(confirmacionRegistroTemplate)
+      res.send(html)
     } else {
       res.status(400).json({
         error: 'Error al confirmar el usuario.',
@@ -263,5 +273,158 @@ exports.getUserById = async (req, res) => {
     res.status(400).json({
       error: error.message,
     })
+  }
+}
+
+exports.updateSaldo = async (req, res) => {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
+    return
+  }
+  try {
+    const { importe } = req.body
+    const usuario = await db.one('SELECT saldo FROM Usuarios WHERE id = $1', [user.id])
+    const saldo = usuario.saldo + importe
+    const usuarioUpdated = await db.one(
+      'UPDATE Usuarios SET saldo = $1 WHERE id = $2 RETURNING *',
+      [saldo, user.id],
+    )
+    // Reserva con id 0 para recargas
+    const movimiento = {
+      usuario_id: user.id,
+      reserva_id: 0,
+      motivo: 'Recarga',
+      importe: importe,
+      fecha: moment.utc().format('YYYY-MM-DD HH:mm'),
+      tipo: 'Ingreso',
+    }
+    await db.one(
+      'INSERT INTO Movimientos (usuario_id, reserva_id, motivo, importe, fecha, tipo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [
+        movimiento.usuario_id,
+        movimiento.reserva_id,
+        movimiento.motivo,
+        movimiento.importe,
+        movimiento.fecha,
+        movimiento.tipo,
+      ],
+    )
+    res.json({ success: true, usuarioUpdated })
+  } catch (error) {
+    res.status(400).json({
+      error: error.message,
+    })
+  }
+}
+
+exports.cambiarPassword = async (req, res) => {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
+    return
+  }
+  try {
+    const { password, newPassword } = req.body
+    const usuario = await db.one('SELECT * FROM Usuarios WHERE id = $1', [user.id])
+    const passwordValido = await bcrypt.compare(password, usuario.password)
+    if (!passwordValido) {
+      return res.status(400).json({
+        error: 'Contraseña incorrecta',
+      })
+    }
+    const securedPassword = await cifrarPassword(newPassword)
+    const usuarioUpdated = await db.one(
+      'UPDATE Usuarios SET password = $1 WHERE id = $2 RETURNING *',
+      [securedPassword, user.id],
+    )
+    res.json({ success: true, usuarioUpdated })
+  } catch (error) {
+    res.status(400).json({
+      error: error.message,
+    })
+  }
+}
+
+exports.cambiarEmail = async (req, res) => {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
+    return
+  }
+  try {
+    const { email } = req.body
+    const userSameEmail = await db.oneOrNone(
+      'SELECT * FROM Usuarios WHERE email = $1 AND activo = TRUE',
+      [email],
+    )
+    if (userSameEmail) {
+      return res.status(400).json({
+        error: 'Email ya existe',
+      })
+    }
+    const usuarioUpdated = await db.one(
+      'UPDATE Usuarios SET email = $1, email_verificado = false WHERE id = $2 RETURNING *',
+      [email, user.id],
+    )
+    const emailSent = await sendEmailChangeEmail(
+      email,
+      usuarioUpdated.token_activacion,
+      usuarioUpdated.nombre,
+    )
+    if (emailSent) {
+      res.json({ success: true, usuarioUpdated })
+    } else {
+      res.status(200).json({
+        error: 'Error al enviar el correo de confirmación',
+      })
+    }
+  } catch (error) {
+    res.status(400).json({
+      error: error.message,
+    })
+  }
+}
+
+exports.confirmEmail = async (req, res) => {
+  logger.info('Confirmando email con token: ' + req.params.token)
+  if (
+    req.params.token === undefined ||
+    req.params.token === 'undefined' ||
+    req.params.token === null
+  ) {
+    return res.status(400).json({
+      error: 'No se ha proporcionado token.',
+    })
+  }
+  try {
+    const { token } = req.params
+    const usuarioToConfirm = await db.one(
+      'SELECT * FROM Usuarios WHERE email_verificado = false AND token_activacion = $1',
+      [token],
+    )
+    if (!usuarioToConfirm) {
+      res.status(200).json({
+        error: 'Ya se ha confirmado el email.',
+      })
+    }
+    const usuario = await db.one(
+      'UPDATE Usuarios SET email_verificado = true WHERE token_activacion = $1 RETURNING *',
+      [token],
+    )
+
+    const parametros = {
+      baseUrl: constants.BASE_URL_BACK,
+      nombre: usuario.nombre,
+    }
+    const html = remplazarParametros(confirmacionRegistroTemplate, parametros)
+
+    if (usuario) {
+      res.setHeader('Content-Type', 'text/html')
+      res.send(html)
+    } else {
+      res.status(400).json({
+        error: 'Error al confirmar el email.',
+      })
+    }
+  } catch (error) {
+    res.status(400).json({ error: error.message })
   }
 }

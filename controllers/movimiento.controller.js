@@ -10,7 +10,7 @@ exports.getMovimientos = async (req, res) => {
   }
   try {
     const movimientos = await db.any(
-      `SELECT m.*, r.fecha_inicio as fecha_reserva, p.nombre AS nombre_pista
+      `SELECT m.*, (m.fecha AT TIME ZONE 'UTC') as fecha,(r.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio_reserva,(r.fecha_fin AT TIME ZONE 'UTC') as fecha_fin_reserva, p.nombre AS nombre_pista
              FROM Movimientos m
              INNER JOIN Reservas r ON m.reserva_id = r.id
              INNER JOIN Pistas p ON r.pista_id = p.id
