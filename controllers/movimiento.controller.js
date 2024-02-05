@@ -4,7 +4,7 @@ const logger = require('../config/logger')
 const { validateUserFromToken } = require('../config/token.validation')
 
 exports.getMovimientos = async (req, res) => {
-  const usuario = await validateUserFromToken(req)
+  const usuario = await validateUserFromToken(req, res)
   if (!usuario) {
     return
   }

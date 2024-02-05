@@ -5,7 +5,7 @@ const { validateUserFromToken } = require('../config/token.validation')
 const moment = require('moment')
 
 exports.getTarifas = async (req, res) => {
-  const usuario = await validateUserFromToken(req)
+  const usuario = await validateUserFromToken(req, res)
   if (!usuario) {
     return
   }
@@ -21,7 +21,7 @@ exports.getTarifas = async (req, res) => {
 }
 
 exports.getTarifaById = async (req, res) => {
-  const usuario = await validateUserFromToken(req)
+  const usuario = await validateUserFromToken(req, res)
   if (!usuario) {
     return
   }
@@ -38,7 +38,7 @@ exports.getTarifaById = async (req, res) => {
 }
 
 exports.createTarifa = async (req, res) => {
-  const usuario = await validateUserFromToken(req)
+  const usuario = await validateUserFromToken(req, res)
   if (!usuario) {
     return
   }
@@ -59,7 +59,7 @@ exports.createTarifa = async (req, res) => {
 }
 
 exports.updateTarifa = async (req, res) => {
-  const usuario = await validateUserFromToken(req)
+  const usuario = await validateUserFromToken(req, res)
   if (!usuario) {
     return
   }
@@ -80,7 +80,7 @@ exports.updateTarifa = async (req, res) => {
 }
 
 exports.deactivateTarifa = async (req, res) => {
-  const usuario = await validateUserFromToken(req)
+  const usuario = await validateUserFromToken(req, res)
   if (!usuario) {
     return
   }
@@ -97,7 +97,7 @@ exports.deactivateTarifa = async (req, res) => {
 }
 
 exports.activateTarifa = async (req, res) => {
-  const usuario = await validateUserFromToken(req)
+  const usuario = await validateUserFromToken(req, res)
   if (!usuario) {
     return
   }
