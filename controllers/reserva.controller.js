@@ -29,13 +29,6 @@ exports.getParrillaPistas = async (req, res) => {
     if (tarifas.length === 0) {
       return res.status(200).json({ error: 'No hay tarifas activas para tu tipo de usuario' })
     }
-    const isWeekend = moment.utc(fecha).isoWeekday() > 5
-    tarifas = tarifas.filter((t) => {
-      if (isWeekend) {
-        return t.tipo_dia === 'FINDE' || t.tipo_dia === 'TODO'
-      }
-      return t.tipo_dia === 'SEMANA' || t.tipo_dia === 'TODO'
-    })
 
     const pistas = await db.any('SELECT * FROM Pistas where activo = true ORDER BY nombre ASC')
 
@@ -117,7 +110,7 @@ exports.createReservas = async (req, res) => {
   }
   logger.info('Creando reserva : Usuario ' + user.username)
   try {
-    const { reservas, importeTotal } = req.body
+    const { reservas, importeTotal, forUser } = req.body
     const reservasInsertadas = []
     const saldo = parseFloat(user.saldo)
 
@@ -132,10 +125,54 @@ exports.createReservas = async (req, res) => {
       if (pistaFromDb.activo == false) {
         return res.status(200).json({ error: 'La pista no está activa' })
       }
-      const tarifa = await db.one('SELECT * FROM Tarifas WHERE id = $1', [reserva.tarifa.id])
-      if (!tarifa) {
-        return res.status(200).json({ error: 'La tarifa no existe' })
+      if (forUser && user.tipo !== 0) {
+        return res.status(200).json({ error: 'No tienes permisos para reservar para otro usuario' })
       }
+
+      let reservaToInsert = {
+        usuario_id: user.id,
+        pista_id: pistaFromDb.id,
+        tarifa: null,
+        importe: null,
+        fecha_inicio: startTime,
+        fecha_fin: endTime,
+        estado: 'Confirmada',
+        motivo: req.body.motivo,
+        usuario_reservador_id: user.id,
+      }
+
+      if (forUser) {
+        const forUserFromDb = await db.one(
+          'SELECT * FROM Usuarios WHERE id = $1 AND activo = true',
+          [forUser.id],
+        )
+        if (!forUserFromDb) {
+          return res.status(200).json({ error: 'El usuario para la reserva no existe' })
+        }
+
+        const tarifas = await db.any(
+          'SELECT * FROM Tarifas where activo = true and tipo_usuario = $1',
+          [forUserFromDb.tipo],
+        )
+        if (tarifas.length === 0) {
+          return res.status(200).json({ error: 'No hay tarifas activas para el tipo de usuario' })
+        }
+        reservaToInsert.usuario_id = forUser.id
+        reservaToInsert.tarifa = assignTarifa(startTime, new Date(startTime), null, tarifas)
+
+        if (parseFloat(forUser.saldo) < parseFloat(reservaToInsert.tarifa.precio)) {
+          reservaToInsert.estado = 'Pendiente'
+        }
+      } else {
+        reservaToInsert.tarifa = await db.one('SELECT * FROM Tarifas WHERE id = $1', [
+          reserva.tarifa.id,
+        ])
+        if (!reservaToInsert.tarifa) {
+          return res.status(200).json({ error: 'La tarifa no existe' })
+        }
+        reservaToInsert.usuario_id = user.id
+      }
+
       const reservasPista = await db.any(
         'SELECT * FROM Reservas WHERE pista_id = $1 AND fecha_inicio = $2 AND estado = $3',
         [pistaFromDb.id, startTime, 'Confirmada'],
@@ -144,31 +181,27 @@ exports.createReservas = async (req, res) => {
         return res.status(200).json({ error: 'La pista ya está reservada' })
       }
 
-      let motivo = null
-      if (user.tipo === 0) {
-        motivo = req.body.motivo
-      }
-
       const reservaInsertada = await db.one(
-        "INSERT INTO Reservas (usuario_id, pista_id,tarifa_id, importe, fecha_inicio, fecha_fin, estado, motivo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *, fecha_inicio AT TIME ZONE 'UTC' as fecha_inicio",
+        "INSERT INTO Reservas (usuario_id, pista_id,tarifa_id, importe, fecha_inicio, fecha_fin, estado, motivo, usuario_reservador_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *, fecha_inicio AT TIME ZONE 'UTC' as fecha_inicio",
         [
-          user.id,
-          pistaFromDb.id,
-          tarifa.id,
-          tarifa.precio,
-          startTime,
-          endTime,
-          'Confirmada',
-          motivo,
+          reservaToInsert.usuario_id,
+          reservaToInsert.pista_id,
+          reservaToInsert.tarifa.id,
+          reservaToInsert.tarifa.precio,
+          reservaToInsert.fecha_inicio,
+          reservaToInsert.fecha_fin,
+          reservaToInsert.estado,
+          reservaToInsert.motivo,
+          reservaToInsert.usuario_reservador_id,
         ],
       )
       reservasInsertadas.push(reservaInsertada)
 
       const movimiento = {
-        usuario_id: user.id,
+        usuario_id: reservaInsertada.usuario_id,
         reserva_id: reservaInsertada.id,
         motivo: 'Reserva',
-        importe: tarifa.precio,
+        importe: reservaInsertada.importe,
         fecha: moment.utc().format('YYYY-MM-DD HH:mm'),
         tipo: 'Gasto',
       }
@@ -183,17 +216,25 @@ exports.createReservas = async (req, res) => {
           movimiento.tipo,
         ],
       )
-      sendReservaEmail(user.email, user.nombre, reservaInsertada.fecha_inicio, pistaFromDb.nombre)
+      let email = forUser ? forUser.email : user.email
+      let nombre = forUser ? forUser.nombre : user.nombre
+      sendReservaEmail(email, nombre, reservaInsertada.fecha_inicio, pistaFromDb.nombre)
+
+      const saldoActualizado = saldo - parseFloat(reservaInsertada.importe)
+      await db.one('UPDATE Usuarios SET saldo = $1 WHERE id = $2 RETURNING *', [
+        saldoActualizado,
+        reservaInsertada.usuario_id,
+      ])
     }
-    let importeTotalInsertado = reservasInsertadas.reduce(
-      (total, reserva) => total + parseFloat(reserva.importe),
-      0,
-    )
-    let saldoActualizado = saldo - importeTotalInsertado
-    await db.one('UPDATE Usuarios SET saldo = $1 WHERE id = $2 RETURNING *', [
-      saldoActualizado,
-      user.id,
-    ])
+    // let importeTotalInsertado = reservasInsertadas.reduce(
+    //   (total, reserva) => total + parseFloat(reserva.importe),
+    //   0,
+    // )
+    // let saldoActualizado = saldo - importeTotalInsertado
+    // await db.one('UPDATE Usuarios SET saldo = $1 WHERE id = $2 RETURNING *', [
+    //   saldoActualizado,
+    //   user.id,
+    // ])
 
     logger.info('Reserva creada : Usuario ' + user.username)
     res.json({ success: true, message: 'Reserva creada', reservasInsertadas })
@@ -308,6 +349,13 @@ exports.getReservasUser = async (req, res) => {
 }
 
 function assignTarifa(time, date, slot, tarifas) {
+  const isWeekend = moment.utc(date).isoWeekday() > 5
+  tarifas = tarifas.filter((t) => {
+    if (isWeekend) {
+      return t.tipo_dia === 'FINDE' || t.tipo_dia === 'TODO'
+    }
+    return t.tipo_dia === 'SEMANA' || t.tipo_dia === 'TODO'
+  })
   const slotTime = moment.utc(time)
   const matchingTarifa = tarifas.find((t) => {
     const [tarifaStartHours, tarifaStartMinutes] = t.hora_inicio.split(':').map(Number)
@@ -328,9 +376,13 @@ function assignTarifa(time, date, slot, tarifas) {
     ])
     return slotTime.isBetween(tarifaStartTime, tarifaEndTime, null, '[]')
   })
-  if (matchingTarifa) {
-    slot.tarifa = matchingTarifa
+  if (slot !== null) {
+    if (matchingTarifa) {
+      slot.tarifa = matchingTarifa
+    } else {
+      slot.tarifa = null
+    }
   } else {
-    slot.tarifa = null
+    return matchingTarifa
   }
 }
