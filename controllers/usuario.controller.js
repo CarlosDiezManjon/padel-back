@@ -133,6 +133,26 @@ exports.getUsers = async (req, res) => {
   }
 }
 
+exports.getActiveUsers = async (req, res) => {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
+    return
+  }
+  if (user.tipo !== 0) {
+    return res.status(401).json({
+      error: 'No tienes permisos para ver usuarios.',
+    })
+  }
+  try {
+    const usuarios = await db.any(
+      'SELECT id, username, nombre, apellidos, email,telefono, saldo, tipo,fecha_alta, fecha_baja, activo FROM Usuarios WHERE activo = true ORDER BY nombre ASC, apellidos ASC',
+    )
+    res.json({ success: true, usuarios })
+  } catch (error) {
+    res.status(400).json({ error: error.message })
+  }
+}
+
 exports.deactivateUser = async (req, res) => {
   logger.info('Dar de baja usuario ' + req.params.id)
   const user = await validateUserFromToken(req, res)
