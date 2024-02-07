@@ -114,10 +114,6 @@ exports.createReservas = async (req, res) => {
     const reservasInsertadas = []
     const saldo = parseFloat(user.saldo)
 
-    if (saldo < importeTotal) {
-      return res.status(200).json({ error: 'Saldo insuficiente' })
-    }
-
     for (const reserva of reservas) {
       const { pista, startTime, endTime } = reserva
       const { id } = pista
@@ -128,9 +124,13 @@ exports.createReservas = async (req, res) => {
       if (forUser && user.tipo !== 0) {
         return res.status(200).json({ error: 'No tienes permisos para reservar para otro usuario' })
       }
-      if (user.tipo !== 0) {
+      if (user.tipo === 0) {
         if ((motivo === '' || motivo === undefined) && forUser === undefined && forUser === null) {
           return res.status(200).json({ error: 'Debe indicar un motivo o un usuario' })
+        }
+      } else {
+        if (saldo < importeTotal) {
+          return res.status(200).json({ error: 'Saldo insuficiente' })
         }
       }
 
@@ -221,15 +221,23 @@ exports.createReservas = async (req, res) => {
           movimiento.tipo,
         ],
       )
-      let email = forUser ? forUser.email : user.email
-      let nombre = forUser ? forUser.nombre : user.nombre
-      sendReservaEmail(email, nombre, reservaInsertada.fecha_inicio, pistaFromDb.nombre)
-
-      const saldoActualizado = saldo - parseFloat(reservaInsertada.importe)
+      const saldoActualizado = forUser.saldo - parseFloat(reservaInsertada.importe)
       await db.one('UPDATE Usuarios SET saldo = $1 WHERE id = $2 RETURNING *', [
         saldoActualizado,
         reservaInsertada.usuario_id,
       ])
+
+      let email = forUser ? forUser.email : user.email
+      let nombre = forUser ? forUser.nombre : user.nombre
+      const emailSent = await sendReservaEmail(
+        email,
+        nombre,
+        reservaInsertada.fecha_inicio,
+        pistaFromDb.nombre,
+      )
+      if (!emailSent) {
+        return res.status(200).json({ error: 'Error enviando email' })
+      }
     }
     // let importeTotalInsertado = reservasInsertadas.reduce(
     //   (total, reserva) => total + parseFloat(reserva.importe),
