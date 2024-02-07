@@ -8,5 +8,6 @@ router.post('/tarifas', tarifasController.createTarifa)
 router.put('/tarifas/:id', tarifasController.updateTarifa)
 router.delete('/tarifas/:id', tarifasController.deactivateTarifa)
 router.put('/activar-tarifa/:id', tarifasController.activateTarifa)
+router.get('/tarifa-actual', tarifasController.getTarifaActual)
 
 module.exports = router

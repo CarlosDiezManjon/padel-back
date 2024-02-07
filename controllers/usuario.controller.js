@@ -84,6 +84,27 @@ exports.getSaldo = async (req, res) => {
   }
 }
 
+exports.getSaldoUsuario = async (req, res) => {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
+    return
+  }
+  if (user.tipo !== 0) {
+    return res.status(401).json({
+      error: 'No tienes permisos para ver saldo de usuarios.',
+    })
+  }
+  try {
+    const { id } = req.params
+    const usuario = await db.one('SELECT saldo FROM Usuarios WHERE id = $1', [id])
+    res.json({ success: true, saldo: usuario.saldo })
+  } catch (error) {
+    res.status(400).json({
+      error: error.message,
+    })
+  }
+}
+
 exports.login = async (req, res) => {
   logger.info('Login usuario ' + req.body.username)
   try {

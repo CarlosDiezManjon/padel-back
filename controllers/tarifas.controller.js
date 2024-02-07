@@ -37,6 +37,31 @@ exports.getTarifaById = async (req, res) => {
   }
 }
 
+exports.getTarifaActual = async (req, res) => {
+  const usuario = await validateUserFromToken(req, res)
+  if (!usuario) {
+    return
+  }
+  try {
+    const { fecha, tipo_usuario } = req.query
+    const isWeekend = moment.utc(fecha).isoWeekday() > 5
+    let tipo_dia = 'SEMANA'
+    if (isWeekend) {
+      return tipo_dia === 'FINDE'
+    }
+    const tarifa = await db.one(
+      "SELECT * FROM Tarifas WHERE (tipo_dia = 'TODO' OR tipo_dia = $1) AND hora_inicio <= $2 AND hora_fin >= $2 AND activo = true AND tipo_usuario = $3 ORDER BY id DESC LIMIT 1",
+      [tipo_dia, moment(fecha).format('HH:mm:ss'), tipo_usuario],
+    )
+    return res.status(200).json({ success: true, tarifa })
+  } catch (error) {
+    logger.error(error)
+    return res.status(400).json({
+      error: error.message,
+    })
+  }
+}
+
 exports.createTarifa = async (req, res) => {
   const usuario = await validateUserFromToken(req, res)
   if (!usuario) {

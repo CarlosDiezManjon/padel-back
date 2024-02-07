@@ -19,7 +19,7 @@ exports.getParrillaPistas = async (req, res) => {
     const { fecha } = req.params
 
     let reservas = await db.any(
-      "SELECT Reservas.*,(Reservas.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio, (Reservas.fecha_fin AT TIME ZONE 'UTC') as fecha_fin, Pistas.nombre, Pistas.duracion_reserva, Usuarios.username, Usuarios.nombre as nombre_usuario FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id INNER JOIN Usuarios ON Reservas.usuario_id = Usuarios.id WHERE DATE(Reservas.fecha_inicio) = $1 AND estado = 'Confirmada'",
+      "SELECT Reservas.*,(Reservas.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio, (Reservas.fecha_fin AT TIME ZONE 'UTC') as fecha_fin, Pistas.nombre, Pistas.duracion_reserva, Usuarios.username, Usuarios.nombre as nombre_usuario FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id INNER JOIN Usuarios ON Reservas.usuario_id = Usuarios.id WHERE DATE(Reservas.fecha_inicio) = $1 AND (estado = 'Confirmada' OR estado = 'Pendiente')",
       [fecha],
     )
 
@@ -110,7 +110,7 @@ exports.createReservas = async (req, res) => {
   }
   logger.info('Creando reserva : Usuario ' + user.username)
   try {
-    const { reservas, importeTotal, forUser } = req.body
+    const { reservas, importeTotal, forUser, motivo } = req.body
     const reservasInsertadas = []
     const saldo = parseFloat(user.saldo)
 
@@ -127,6 +127,11 @@ exports.createReservas = async (req, res) => {
       }
       if (forUser && user.tipo !== 0) {
         return res.status(200).json({ error: 'No tienes permisos para reservar para otro usuario' })
+      }
+      if (user.tipo !== 0) {
+        if ((motivo === '' || motivo === undefined) && forUser === undefined && forUser === null) {
+          return res.status(200).json({ error: 'Debe indicar un motivo o un usuario' })
+        }
       }
 
       let reservaToInsert = {
@@ -265,18 +270,19 @@ exports.cancelReservas = async (req, res) => {
       if (reservaFromDb.usuario_id !== user.id && user.tipo !== 0) {
         return res.status(200).json({ error: 'No tienes permisos para cancelar esta reserva' })
       }
-
-      const now = moment.utc()
-      const reservaStartTime = moment.utc(reservaFromDb.fecha_inicio)
-      const diffInMinutes = reservaStartTime.diff(now, 'minutes')
-      if (diffInMinutes < 60) {
-        return res.status(200).json({
-          error:
-            'No puedes cancelar esta reserva menos de 1 hora antes. ' +
-            reserva.pista.nombre +
-            ' ' +
-            dateUTCToLocalTime(reservaStartTime),
-        })
+      if (user.tipo !== 0) {
+        const now = moment.utc()
+        const reservaStartTime = moment.utc(reservaFromDb.fecha_inicio)
+        const diffInMinutes = reservaStartTime.diff(now, 'minutes')
+        if (diffInMinutes < 60) {
+          return res.status(200).json({
+            error:
+              'No puedes cancelar esta reserva menos de 1 hora antes. ' +
+              reserva.pista.nombre +
+              ' ' +
+              dateUTCToLocalTime(reservaStartTime),
+          })
+        }
       }
 
       const reservaCancelada = await db.one(
