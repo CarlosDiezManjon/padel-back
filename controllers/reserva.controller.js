@@ -3,12 +3,7 @@ const logger = require('../config/logger')
 const { validateUserFromToken } = require('../config/token.validation')
 const moment = require('moment')
 
-const {
-  sendReservaEmail,
-  sendCancelacionEmail,
-  dateUTCToLocalDateOnly,
-  dateUTCToLocalTime,
-} = require('../config/utils')
+const { sendReservaEmail, sendCancelacionEmail, dateUTCToLocalTime } = require('../config/utils')
 
 exports.getParrillaPistas = async (req, res) => {
   const user = await validateUserFromToken(req, res)
@@ -145,30 +140,31 @@ exports.createReservas = async (req, res) => {
         motivo: req.body.motivo,
         usuario_reservador_id: user.id,
       }
+      let userReserva = null
 
       if (forUser) {
-        const forUserFromDb = await db.one(
-          'SELECT * FROM Usuarios WHERE id = $1 AND activo = true',
-          [forUser.id],
-        )
-        if (!forUserFromDb) {
+        userReserva = await db.one('SELECT * FROM Usuarios WHERE id = $1 AND activo = true', [
+          forUser.id,
+        ])
+        if (!userReserva) {
           return res.status(200).json({ error: 'El usuario para la reserva no existe' })
         }
 
         const tarifas = await db.any(
           'SELECT * FROM Tarifas where activo = true and tipo_usuario = $1',
-          [forUserFromDb.tipo],
+          [userReserva.tipo],
         )
         if (tarifas.length === 0) {
           return res.status(200).json({ error: 'No hay tarifas activas para el tipo de usuario' })
         }
-        reservaToInsert.usuario_id = forUser.id
+        reservaToInsert.usuario_id = userReserva.id
         reservaToInsert.tarifa = assignTarifa(startTime, new Date(startTime), null, tarifas)
 
         if (parseFloat(forUser.saldo) < parseFloat(reservaToInsert.tarifa.precio)) {
           reservaToInsert.estado = 'Pendiente'
         }
       } else {
+        userReserva = await db.one('SELECT * FROM Usuarios WHERE id = $1', [user.id])
         reservaToInsert.tarifa = await db.one('SELECT * FROM Tarifas WHERE id = $1', [
           reserva.tarifa.id,
         ])
@@ -210,8 +206,11 @@ exports.createReservas = async (req, res) => {
         fecha: moment.utc().format('YYYY-MM-DD HH:mm'),
         tipo: 'Gasto',
       }
+
+      const saldoActualizado = userReserva.saldo - parseFloat(reservaInsertada.importe)
+
       await db.one(
-        'INSERT INTO Movimientos (usuario_id, reserva_id, motivo, importe, fecha, tipo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        'INSERT INTO Movimientos (usuario_id, reserva_id, motivo, importe, fecha, tipo, saldo) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
         [
           movimiento.usuario_id,
           movimiento.reserva_id,
@@ -219,9 +218,10 @@ exports.createReservas = async (req, res) => {
           movimiento.importe,
           movimiento.fecha,
           movimiento.tipo,
+          saldoActualizado,
         ],
       )
-      const saldoActualizado = forUser.saldo - parseFloat(reservaInsertada.importe)
+
       await db.one('UPDATE Usuarios SET saldo = $1 WHERE id = $2 RETURNING *', [
         saldoActualizado,
         reservaInsertada.usuario_id,
@@ -307,8 +307,14 @@ exports.cancelReservas = async (req, res) => {
         fecha: moment.utc().format('YYYY-MM-DD HH:mm'),
         tipo: 'Ingreso',
       }
+      const usuarioCancelacion = await db.one('SELECT * FROM Usuarios WHERE id = $1', [
+        reservaCancelada.usuario_id,
+      ])
+      let saldoActualizado =
+        parseFloat(usuarioCancelacion.saldo) + parseFloat(reservaCancelada.importe)
+
       await db.one(
-        'INSERT INTO Movimientos (usuario_id, reserva_id, motivo, importe, fecha, tipo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        'INSERT INTO Movimientos (usuario_id, reserva_id, motivo, importe, fecha, tipo, saldo) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
         [
           movimiento.usuario_id,
           movimiento.reserva_id,
@@ -316,12 +322,10 @@ exports.cancelReservas = async (req, res) => {
           movimiento.importe,
           movimiento.fecha,
           movimiento.tipo,
+          saldoActualizado,
         ],
       )
-      const usuarioCancelacion = await db.one('SELECT * FROM Usuarios WHERE id = $1', [
-        reservaCancelada.usuario_id,
-      ])
-      let saldoActualizado = parseFloat(user.saldo) + parseFloat(reservaCancelada.importe)
+
       await db.one('UPDATE Usuarios SET saldo = $1 WHERE id = $2 RETURNING *', [
         saldoActualizado,
         usuarioCancelacion.id,

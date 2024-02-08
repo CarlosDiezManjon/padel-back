@@ -77,6 +77,7 @@ CREATE TABLE movimientos (
   importe DECIMAL(10,2) NOT NULL,
   tipo VARCHAR(20) NOT NULL,
   fecha TIMESTAMP NOT NULL,
+  saldo DECIMAL(10,2) NOT NULL,
   FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
   FOREIGN KEY (reserva_id) REFERENCES reservas (id)
 );

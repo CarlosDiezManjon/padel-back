@@ -3,6 +3,7 @@ const db = require('../config/db')
 const jwt = require('jsonwebtoken')
 const logger = require('../config/logger')
 const bcrypt = require('bcrypt')
+const moment = require('moment')
 
 const {
   generarCodigoRegistro,
@@ -234,14 +235,14 @@ exports.updateUser = async (req, res) => {
   }
   try {
     const { id } = req.params
-    const { username, nombre, apellidos, email, telefono, tipo, saldo } = req.body
+    const { username, nombre, apellidos, email, telefono, tipo } = req.body
     let numero_socio = req.body.numero_socio
     if (tipo !== 1) {
       numero_socio = null
     }
     const usuario = await db.one(
-      'UPDATE Usuarios SET username = $1, nombre = $2, apellidos = $3, email = $4, telefono = $5, tipo = $6, saldo = $7, numero_socio = $8 WHERE id = $9 RETURNING *',
-      [username, nombre, apellidos, email, telefono, tipo, saldo, numero_socio, id],
+      'UPDATE Usuarios SET username = $1, nombre = $2, apellidos = $3, email = $4, telefono = $5, tipo = $6, numero_socio = $7 WHERE id = $8 RETURNING *',
+      [username, nombre, apellidos, email, telefono, tipo, numero_socio, id],
     )
     res.json({ success: true, message: 'Usuario actualizado', usuario })
   } catch (error) {
@@ -317,30 +318,58 @@ exports.getUserById = async (req, res) => {
   }
 }
 
-exports.updateSaldo = async (req, res) => {
+exports.updateSaldoUser = async (req, res) => {
   const user = await validateUserFromToken(req, res)
   if (!user) {
     return
   }
   try {
-    const { importe } = req.body
-    const usuario = await db.one('SELECT saldo FROM Usuarios WHERE id = $1', [user.id])
-    const saldo = usuario.saldo + importe
+    if (user.tipo !== 0) {
+      return res.status(401).json({
+        error: 'No tienes permisos para actualizar saldo.',
+      })
+    }
+    const { importe, usuario_id } = req.body
+    const usuario = await db.one('SELECT * FROM Usuarios WHERE id = $1', [usuario_id])
+    const saldo = parseFloat(usuario.saldo) + parseFloat(importe)
     const usuarioUpdated = await db.one(
       'UPDATE Usuarios SET saldo = $1 WHERE id = $2 RETURNING *',
-      [saldo, user.id],
+      [saldo, usuario_id],
     )
-    // Reserva con id 0 para recargas
+
+    const reservasPendientes = await db.any(
+      'SELECT * FROM Reservas WHERE usuario_id = $1 AND estado = $2',
+      [usuario_id, 'Pendiente'],
+    )
+    for (const reserva of reservasPendientes) {
+      const saldoActualUsuario = await db.one('SELECT saldo FROM Usuarios WHERE id = $1', [
+        usuario_id,
+      ])
+      if (saldoActualUsuario.saldo >= reserva.importe) {
+        await db.one('UPDATE Reservas SET estado = $1 WHERE id = $2 RETURNING *', [
+          'Confirmada',
+          reserva.id,
+        ])
+        const saldo = saldoActualUsuario.saldo - reserva.importe
+        await db.one('UPDATE Usuarios SET saldo = $1 WHERE id = $2 RETURNING *', [
+          saldo,
+          usuario_id,
+        ])
+      }
+    }
+
     const movimiento = {
-      usuario_id: user.id,
-      reserva_id: 0,
+      usuario_id: usuario.id,
+      reserva_id: null,
       motivo: 'Recarga',
       importe: importe,
       fecha: moment.utc().format('YYYY-MM-DD HH:mm'),
       tipo: 'Ingreso',
+      saldo: saldo,
     }
+
     await db.one(
-      'INSERT INTO Movimientos (usuario_id, reserva_id, motivo, importe, fecha, tipo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      'INSERT INTO Movimientos (usuario_id, reserva_id, motivo, importe, fecha, tipo, saldo) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
       [
         movimiento.usuario_id,
         movimiento.reserva_id,
@@ -348,8 +377,10 @@ exports.updateSaldo = async (req, res) => {
         movimiento.importe,
         movimiento.fecha,
         movimiento.tipo,
+        movimiento.saldo,
       ],
     )
+
     res.json({ success: true, usuarioUpdated })
   } catch (error) {
     res.status(400).json({

@@ -72,7 +72,7 @@ function sendEmail(mailOptions) {
         logger.error('Error sending email:', error)
         reject(false)
       } else {
-        logger.info('Email sent:', mailOptions.to)
+        logger.info('Email sent:', info.accepted[0])
         resolve(true)
       }
     })

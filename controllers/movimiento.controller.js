@@ -11,11 +11,11 @@ exports.getMovimientos = async (req, res) => {
   try {
     const movimientos = await db.any(
       `SELECT m.*, (m.fecha AT TIME ZONE 'UTC') as fecha,(r.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio_reserva,(r.fecha_fin AT TIME ZONE 'UTC') as fecha_fin_reserva, p.nombre AS nombre_pista
-             FROM Movimientos m
-             INNER JOIN Reservas r ON m.reserva_id = r.id
-             INNER JOIN Pistas p ON r.pista_id = p.id
-             WHERE m.usuario_id = $1
-             ORDER BY m.fecha DESC`,
+         FROM Movimientos m
+         LEFT JOIN Reservas r ON m.reserva_id = r.id
+         LEFT JOIN Pistas p ON r.pista_id = p.id
+         WHERE m.usuario_id = $1
+         ORDER BY m.fecha DESC, m.id DESC`,
       [usuario.id],
     )
     return res.status(200).json({ success: true, movimientos })
