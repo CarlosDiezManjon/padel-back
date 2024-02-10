@@ -10,6 +10,8 @@ const {
   sendConfirmationEmail,
   cifrarPassword,
   sendEmailChangeEmail,
+  sendRegistroEmail,
+  remplazarParametros,
 } = require('../config/utils')
 const { validateUserFromToken } = require('../config/token.validation')
 const constants = require('../config/constants')
@@ -18,7 +20,7 @@ const { confirmacionRegistroTemplate } = require('../config/mailTemplates')
 exports.registro = async (req, res) => {
   logger.info('Creando usuario ' + req.body.username)
   try {
-    const { username, nombre, apellidos, password, email, telefono, tipo } = req.body
+    const { username, nombre, apellidos, password, email, telefono, tipo, numero_socio } = req.body
     const fecha_alta = moment.utc().format('YYYY-MM-DD HH:mm')
     const saldo = 0
     const securedPassword = await cifrarPassword(password)
@@ -42,7 +44,7 @@ exports.registro = async (req, res) => {
       })
     }
     const usuario = await db.one(
-      'INSERT INTO Usuarios(username, password, nombre, apellidos, email, telefono, tipo, fecha_alta, saldo, token_activacion) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      'INSERT INTO Usuarios(username, password, nombre, apellidos, email, telefono, tipo, fecha_alta, saldo, token_activacion, numero_socio) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
       [
         username,
         securedPassword,
@@ -54,6 +56,7 @@ exports.registro = async (req, res) => {
         fecha_alta,
         saldo,
         tokenConfirmacion,
+        numero_socio,
       ],
     )
     const emailSent = await sendRegistroEmail(email, tokenConfirmacion)
@@ -280,8 +283,8 @@ exports.confirmUser = async (req, res) => {
       })
     }
     const usuario = await db.one(
-      'UPDATE Usuarios SET activo = true AND email_verificado = true WHERE token_activacion = $1 RETURNING *',
-      [token],
+      'UPDATE Usuarios SET activo = true, email_verificado = true WHERE id = $1 RETURNING *',
+      [usuarioToConfirm.id],
     )
     const parametros = {
       baseUrl: constants.BASE_URL_BACK,

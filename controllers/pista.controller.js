@@ -9,7 +9,9 @@ exports.getPistas = async (req, res) => {
     return
   }
   try {
-    const pistas = await db.any('SELECT * FROM Pistas WHERE activo = TRUE')
+    const pistas = await db.any(
+      'SELECT p.*, a.nombre AS actividad_nombre FROM Pistas p JOIN Actividades a ON p.actividad_id = a.id',
+    )
     pistas.forEach(parseFloatsPista)
     res.json({ success: true, pistas })
   } catch (error) {
@@ -46,10 +48,15 @@ exports.createPista = async (req, res) => {
   }
   try {
     //TODO ver como hacer lo de la ubicacion lat lon
-    const { nombre, ubicacion, duracion_reserva, hora_inicio, hora_fin } = req.body
+    const { nombre, ubicacion, duracion_reserva, hora_inicio, hora_fin, actividad_id } = req.body
+    const actividad = await db.one('SELECT * FROM Actividades WHERE id = $1', [actividad_id])
+    if (!actividad) {
+      return res.status(200).json({ error: 'La actividad no existe' })
+    }
+
     const pista = await db.one(
-      'INSERT INTO Pistas(nombre, ubicacion, duracion_reserva, hora_inicio, hora_fin) VALUES($1, $2, $3, $4, $5) RETURNING *',
-      [nombre, ubicacion, duracion_reserva, hora_inicio, hora_fin],
+      'INSERT INTO Pistas(nombre, ubicacion, duracion_reserva, hora_inicio, hora_fin, actividad_id) VALUES($1, $2, $3, $4, $5, $6) RETURNING *',
+      [nombre, ubicacion, duracion_reserva, hora_inicio, hora_fin, actividad_id],
     )
     parseFloatsPista(pista)
     res.json({ success: true, message: 'Pista creada', pista })
@@ -71,11 +78,10 @@ exports.updatePista = async (req, res) => {
   }
   try {
     const { id } = req.params
-    const { nombre, ubicacion, lat, lon, precio, duracion_reserva, hora_inicio, hora_fin } =
-      req.body
+    const { nombre, ubicacion, duracion_reserva, hora_inicio, hora_fin, actividad_id } = req.body
     const pista = await db.one(
-      'UPDATE Pistas SET nombre = $1, ubicacion = $2, lat = $3, lon = $4, precio = $5, duracion_reserva = $6, hora_inicio = $7, hora_fin = $8 WHERE activo = TRUE AND id = $9 RETURNING *',
-      [nombre, ubicacion, lat, lon, precio, duracion_reserva, hora_inicio, hora_fin, id],
+      'UPDATE Pistas SET nombre = $1, ubicacion = $2, duracion_reserva = $3, hora_inicio = $4, hora_fin = $5, actividad_id = $6 WHERE id = $7 RETURNING *',
+      [nombre, ubicacion, duracion_reserva, hora_inicio, hora_fin, actividad_id, id],
     )
     parseFloatsPista(pista)
     res.json({ success: true, message: 'Pista actualizada', pista })

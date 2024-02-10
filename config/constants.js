@@ -5,9 +5,9 @@ module.exports = {
   BASE_URL_BACK:
     process.env.NODE_ENV === 'production'
       ? 'https://padel-back.onrender.com'
-      : 'http://localhost:5173',
+      : 'http://localhost:3000',
   BASE_URL_FRONT:
     process.env.NODE_ENV === 'production'
       ? 'https://padel-nbx4.onrender.com'
-      : 'http://localhost:3000',
+      : 'http://localhost:5173',
 }
