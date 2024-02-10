@@ -22,6 +22,13 @@ CREATE TABLE usuarios (
   numero_socio INT UNIQUE NULL
 );
 
+CREATE TABLE actividades (
+  id SERIAL PRIMARY KEY,
+  nombre VARCHAR(25) UNIQUE NOT NULL,
+  descripcion VARCHAR(100) NULL,
+  activo BOOLEAN NOT NULL DEFAULT FALSE
+);
+
 CREATE TABLE pistas (
   id SERIAL PRIMARY KEY,
   nombre VARCHAR(50) UNIQUE NOT NULL,
@@ -29,7 +36,9 @@ CREATE TABLE pistas (
   duracion_reserva INT NOT NULL,
   activo BOOLEAN NOT NULL DEFAULT TRUE,
   hora_inicio TIME NOT NULL DEFAULT '09:00:00',
-  hora_fin TIME NOT NULL DEFAULT '22:00:00'
+  hora_fin TIME NOT NULL DEFAULT '22:00:00',
+  actividad_id INT NULL,
+  FOREIGN KEY (actividad_id) REFERENCES actividades (id)
 );
 
 CREATE TABLE tarifas (
@@ -40,7 +49,9 @@ CREATE TABLE tarifas (
   hora_fin TIME NOT NULL,
   precio DECIMAL(10,2) NOT NULL,
   activo BOOLEAN NOT NULL DEFAULT TRUE,
-  tipo_usuario INT NOT NULL DEFAULT 0
+  tipo_usuario INT NOT NULL DEFAULT 0,
+  actividad_id INT NULL,
+  FOREIGN KEY (actividad_id) REFERENCES actividades (id)
 );
 
 CREATE TABLE reservas (
@@ -72,16 +83,18 @@ CREATE TABLE pagos (
 CREATE TABLE movimientos (
   id SERIAL PRIMARY KEY,
   usuario_id INT NOT NULL,
-  reserva_id INT NOT NULL,
+  reserva_id INT NULL,
   motivo VARCHAR(20) NOT NULL,
   importe DECIMAL(10,2) NOT NULL,
   tipo VARCHAR(20) NOT NULL,
   fecha TIMESTAMP NOT NULL,
+  saldo DECIMAL(10,2) NOT NULL,
   FOREIGN KEY (usuario_id) REFERENCES usuarios (id),
   FOREIGN KEY (reserva_id) REFERENCES reservas (id)
 );
 
-INSERT INTO usuarios (id, username, nombre, apellidos, email, telefono, password, saldo, tipo, fecha_alta, fecha_baja, activo, token_activacion) VALUES(1, 'charlesmcmahon', 'Carlos', 'Díez Manjón', 'cdiez1995@gmail.com', '645773320', '$2b$10$65DXZ7mQrblDL95fEeUyduRBOI2mHXF6j0OhNc3MdZe9kmIoMPUTS', 0.00, 0, '2024-01-14 19:46:57.398', NULL, true, 'GY2vvXy6Hc8DwtvY');
+INSERT INTO usuarios (id, username, nombre, apellidos, email, telefono, password, saldo, tipo, fecha_alta, fecha_baja, activo, token_activacion, email_verificado) VALUES(1, 'admin', 'Admin', 'Admin Admin', 'cdiez1995@gmail.com', '645773320', '$2b$10$65DXZ7mQrblDL95fEeUyduRBOI2mHXF6j0OhNc3MdZe9kmIoMPUTS', 0.00, 0, '2024-01-14 19:46:57.398', NULL, true, 'GY2vvXy6Hc8DwtvY', true);
+
 
 insert into tarifas(id, nombre, tipo_dia, hora_inicio, hora_fin, precio, activo, tipo_usuario) values(1, 'Socio Mañana', 'SEMANA', '09:00', '14:00', 7.00, true, 1);
 

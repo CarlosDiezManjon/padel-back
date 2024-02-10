@@ -13,16 +13,18 @@ const corsOptions = {
 app.use(cors(corsOptions))
 
 const usuarioRoutes = require('./routes/usuario.routes')
-const pistasRoutes = require('./routes/pistas.routes')
+const pistaRoutes = require('./routes/pista.routes')
 const reservaRoutes = require('./routes/reserva.routes')
 const movimientoRoutes = require('./routes/movimiento.routes')
-const tarifasRoutes = require('./routes/tarifas.routes')
+const tarifaRoutes = require('./routes/tarifa.routes')
+const actividadRoutes = require('./routes/actividad.routes')
 
 app.use('', usuarioRoutes)
-app.use('', pistasRoutes)
+app.use('', pistaRoutes)
 app.use('', reservaRoutes)
 app.use('', movimientoRoutes)
-app.use('', tarifasRoutes)
+app.use('', tarifaRoutes)
+app.use('', actividadRoutes)
 
 app.listen(port, () => {
   console.log(`API escuchando en el puerto ${port}`)

@@ -1,16 +1,20 @@
 const db = require('../config/db')
-const jwt = require('jsonwebtoken')
 const logger = require('../config/logger')
 const { validateUserFromToken } = require('../config/token.validation')
 const moment = require('moment')
 
 exports.getTarifas = async (req, res) => {
-  const usuario = await validateUserFromToken(req, res)
-  if (!usuario) {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
     return
   }
   try {
-    const tarifas = await db.any('SELECT * FROM Tarifas ORDER BY id ASC')
+    const tarifas = await db.any(`
+      SELECT t.*, a.nombre AS actividad_nombre
+      FROM Tarifas t
+      INNER JOIN Actividades a ON t.actividad_id = a.id
+      ORDER BY t.id ASC
+    `)
     return res.status(200).json({ success: true, tarifas })
   } catch (error) {
     logger.error(error)
@@ -21,8 +25,8 @@ exports.getTarifas = async (req, res) => {
 }
 
 exports.getTarifaById = async (req, res) => {
-  const usuario = await validateUserFromToken(req, res)
-  if (!usuario) {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
     return
   }
   try {
@@ -38,8 +42,8 @@ exports.getTarifaById = async (req, res) => {
 }
 
 exports.getTarifaActual = async (req, res) => {
-  const usuario = await validateUserFromToken(req, res)
-  if (!usuario) {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
     return
   }
   try {
@@ -63,15 +67,20 @@ exports.getTarifaActual = async (req, res) => {
 }
 
 exports.createTarifa = async (req, res) => {
-  const usuario = await validateUserFromToken(req, res)
-  if (!usuario) {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
     return
   }
+  if (user.tipo !== 0) {
+    return res.status(401).json({
+      error: 'No tienes permisos para crear tarifas.',
+    })
+  }
   try {
-    const { nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario } = req.body
+    const { nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario, actividad_id } = req.body
     const tarifa = await db.none(
-      'INSERT INTO Tarifas (nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario) VALUES ($1, $2, $3, $4, $5, $6)',
-      [nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario],
+      'INSERT INTO Tarifas (nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario, actividad_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario, actividad_id],
     )
 
     return res.status(200).json({ success: true, tarifa })
@@ -84,16 +93,21 @@ exports.createTarifa = async (req, res) => {
 }
 
 exports.updateTarifa = async (req, res) => {
-  const usuario = await validateUserFromToken(req, res)
-  if (!usuario) {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
     return
+  }
+  if (user.tipo !== 0) {
+    return res.status(401).json({
+      error: 'No tienes permisos para actualizar tarifas.',
+    })
   }
   try {
     const { id } = req.params
-    const { nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario } = req.body
+    const { nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario, actividad_id } = req.body
     const tarifa = await db.one(
-      'UPDATE Tarifas SET nombre = $1, tipo_dia = $2, hora_inicio = $3, hora_fin = $4, precio = $5, tipo_usuario = $6 WHERE id = $7 RETURNING *',
-      [nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario, id],
+      'UPDATE Tarifas SET nombre = $1, tipo_dia = $2, hora_inicio = $3, hora_fin = $4, precio = $5, tipo_usuario = $6, actividad_id = $7 WHERE id = $8 RETURNING *',
+      [nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario, actividad_id, id],
     )
     return res.status(200).json({ success: true, tarifa })
   } catch (error) {
@@ -105,11 +119,17 @@ exports.updateTarifa = async (req, res) => {
 }
 
 exports.deactivateTarifa = async (req, res) => {
-  const usuario = await validateUserFromToken(req, res)
-  if (!usuario) {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
     return
   }
+  if (user.tipo !== 0) {
+    return res.status(401).json({
+      error: 'No tienes permisos para desactivar tarifas.',
+    })
+  }
   try {
+    //TODO: Validar que no haya reservas con esta tarifa
     const { id } = req.params
     const tarifa = await db.one('UPDATE Tarifas SET activo = false WHERE id = $1 RETURNING *', [id])
     return res.status(200).json({ success: true, tarifa })
@@ -122,9 +142,14 @@ exports.deactivateTarifa = async (req, res) => {
 }
 
 exports.activateTarifa = async (req, res) => {
-  const usuario = await validateUserFromToken(req, res)
-  if (!usuario) {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
     return
+  }
+  if (user.tipo !== 0) {
+    return res.status(401).json({
+      error: 'No tienes permisos para activar tarifas.',
+    })
   }
   try {
     const { id } = req.params
