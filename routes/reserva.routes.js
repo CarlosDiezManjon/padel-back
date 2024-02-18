@@ -9,5 +9,5 @@ router.post('/reservas', reservaController.createReservas)
 //router.put('/reservas/:id', reservaController.updateReserva)
 router.put('/cancel-reservas', reservaController.cancelReservas)
 //router.delete('/reservas/:id', reservaController.deleteReserva)
-router.get('/parrilla/:fecha', reservaController.getParrillaPistas)
+router.get('/parrilla/:actividad_id/:fecha', reservaController.getParrillaPistas)
 module.exports = router

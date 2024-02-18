@@ -42,7 +42,7 @@ CREATE TABLE pistas (
 );
 
 CREATE TABLE tarifas (
-  id INT PRIMARY KEY,
+  id SERIAL PRIMARY KEY,
   nombre VARCHAR(50) UNIQUE NOT NULL,
   tipo_dia VARCHAR(20) NOT NULL,
   hora_inicio TIME NOT NULL,

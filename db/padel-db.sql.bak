@@ -71,15 +71,6 @@ CREATE TABLE reservas (
   FOREIGN KEY (tarifa_id) REFERENCES tarifas (id)
 );
 
-CREATE TABLE pagos (
-  id SERIAL PRIMARY KEY,
-  reserva_id INT NOT NULL,
-  importe DECIMAL(10,2) NOT NULL,
-  metodo_pago VARCHAR(20) NOT NULL,
-  fecha TIMESTAMP NOT NULL,
-  FOREIGN KEY (reserva_id) REFERENCES reservas (id)
-);
-
 CREATE TABLE movimientos (
   id SERIAL PRIMARY KEY,
   usuario_id INT NOT NULL,

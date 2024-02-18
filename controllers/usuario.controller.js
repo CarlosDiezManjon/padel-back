@@ -340,24 +340,19 @@ exports.updateSaldoUser = async (req, res) => {
       [saldo, usuario_id],
     )
 
+    let importeRecarga = parseFloat(importe)
+
     const reservasPendientes = await db.any(
       'SELECT * FROM Reservas WHERE usuario_id = $1 AND estado = $2',
       [usuario_id, 'Pendiente'],
     )
     for (const reserva of reservasPendientes) {
-      const saldoActualUsuario = await db.one('SELECT saldo FROM Usuarios WHERE id = $1', [
-        usuario_id,
-      ])
-      if (saldoActualUsuario.saldo >= reserva.importe) {
+      if (importeRecarga >= parseFloat(reserva.importe)) {
         await db.one('UPDATE Reservas SET estado = $1 WHERE id = $2 RETURNING *', [
           'Confirmada',
           reserva.id,
         ])
-        const saldo = saldoActualUsuario.saldo - reserva.importe
-        await db.one('UPDATE Usuarios SET saldo = $1 WHERE id = $2 RETURNING *', [
-          saldo,
-          usuario_id,
-        ])
+        importeRecarga -= parseFloat(reserva.importe)
       }
     }
 

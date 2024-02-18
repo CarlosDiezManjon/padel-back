@@ -11,21 +11,25 @@ exports.getParrillaPistas = async (req, res) => {
     return
   }
   try {
-    const { fecha } = req.params
+    const { fecha, actividad_id } = req.params
 
     let reservas = await db.any(
-      "SELECT Reservas.*,(Reservas.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio, (Reservas.fecha_fin AT TIME ZONE 'UTC') as fecha_fin, Pistas.nombre, Pistas.duracion_reserva, Usuarios.username, Usuarios.nombre as nombre_usuario FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id INNER JOIN Usuarios ON Reservas.usuario_id = Usuarios.id WHERE DATE(Reservas.fecha_inicio) = $1 AND (estado = 'Confirmada' OR estado = 'Pendiente')",
-      [fecha],
+      "SELECT Reservas.*,(Reservas.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio, (Reservas.fecha_fin AT TIME ZONE 'UTC') as fecha_fin, Pistas.nombre, Pistas.duracion_reserva, Usuarios.username, Usuarios.nombre as nombre_usuario FROM Reservas INNER JOIN Pistas ON Reservas.pista_id = Pistas.id INNER JOIN Usuarios ON Reservas.usuario_id = Usuarios.id WHERE DATE(Reservas.fecha_inicio) = $1 AND (estado = 'Confirmada' OR estado = 'Pendiente') AND Pistas.actividad_id = $2",
+      [fecha, actividad_id],
     )
 
-    let tarifas = await db.any('SELECT * FROM Tarifas where activo = true and tipo_usuario = $1', [
-      user.tipo,
-    ])
+    let tarifas = await db.any(
+      'SELECT * FROM Tarifas WHERE activo = true AND tipo_usuario = $1 AND actividad_id = $2',
+      [user.tipo, actividad_id],
+    )
     if (tarifas.length === 0) {
       return res.status(200).json({ error: 'No hay tarifas activas para tu tipo de usuario' })
     }
 
-    const pistas = await db.any('SELECT * FROM Pistas where activo = true ORDER BY nombre ASC')
+    const pistas = await db.any(
+      'SELECT Pistas.*, Actividades.nombre as nombre_actividad FROM Pistas INNER JOIN Actividades ON Pistas.actividad_id = Actividades.id WHERE Pistas.activo = true AND Pistas.actividad_id = $1 ORDER BY Pistas.nombre ASC',
+      [actividad_id],
+    )
 
     const date = new Date(fecha)
 
@@ -67,6 +71,8 @@ exports.getParrillaPistas = async (req, res) => {
             id: p.id,
             nombre: p.nombre,
             precio: p.precio,
+            actividad: p.nombre_actividad,
+            actividad_id: p.actividad_id,
           },
           past: time.isBefore(moment.utc()),
         }
@@ -269,7 +275,7 @@ exports.cancelReservas = async (req, res) => {
     for (const reserva of reservas) {
       const { id } = reserva.reserva
       const reservaFromDb = await db.one(
-        `SELECT r.*, (r.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio FROM Reservas r WHERE estado = $1 AND id = $2`,
+        `SELECT r.*, (r.fecha_inicio AT TIME ZONE 'UTC') as fecha_inicio FROM Reservas r WHERE id = $2`,
         ['Confirmada', id],
       )
       if (!reservaFromDb) {

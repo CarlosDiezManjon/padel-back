@@ -12,7 +12,7 @@ exports.getTarifas = async (req, res) => {
     const tarifas = await db.any(`
       SELECT t.*, a.nombre AS actividad_nombre
       FROM Tarifas t
-      INNER JOIN Actividades a ON t.actividad_id = a.id
+      LEFT JOIN Actividades a ON t.actividad_id = a.id
       ORDER BY t.id ASC
     `)
     return res.status(200).json({ success: true, tarifas })
@@ -47,15 +47,15 @@ exports.getTarifaActual = async (req, res) => {
     return
   }
   try {
-    const { fecha, tipo_usuario } = req.query
+    const { fecha, tipo_usuario, tipo_actividad } = req.query
     const isWeekend = moment.utc(fecha).isoWeekday() > 5
     let tipo_dia = 'SEMANA'
     if (isWeekend) {
-      return tipo_dia === 'FINDE'
+      tipo_dia === 'FINDE'
     }
     const tarifa = await db.one(
-      "SELECT * FROM Tarifas WHERE (tipo_dia = 'TODO' OR tipo_dia = $1) AND hora_inicio <= $2 AND hora_fin >= $2 AND activo = true AND tipo_usuario = $3 ORDER BY id DESC LIMIT 1",
-      [tipo_dia, moment(fecha).format('HH:mm:ss'), tipo_usuario],
+      "SELECT * FROM Tarifas WHERE (tipo_dia = 'TODO' OR tipo_dia = $1) AND hora_inicio <= $2 AND hora_fin >= $2 AND activo = true AND tipo_usuario = $3 AND actividad_id = $4 ORDER BY id DESC LIMIT 1",
+      [tipo_dia, moment(fecha).format('HH:mm:ss'), tipo_usuario, tipo_actividad],
     )
     return res.status(200).json({ success: true, tarifa })
   } catch (error) {
@@ -78,9 +78,9 @@ exports.createTarifa = async (req, res) => {
   }
   try {
     const { nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario, actividad_id } = req.body
-    const tarifa = await db.none(
-      'INSERT INTO Tarifas (nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario, actividad_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario, actividad_id],
+    const tarifa = await db.one(
+      'INSERT INTO Tarifas (nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario, actividad_id, activo) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [nombre, tipo_dia, hora_inicio, hora_fin, precio, tipo_usuario, actividad_id, true],
     )
 
     return res.status(200).json({ success: true, tarifa })

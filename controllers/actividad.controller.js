@@ -19,6 +19,24 @@ exports.getActividades = async (req, res) => {
   }
 }
 
+exports.getActiveActividades = async (req, res) => {
+  const user = await validateUserFromToken(req, res)
+  if (!user) {
+    return
+  }
+  try {
+    const actividades = await db.any(
+      'SELECT * FROM Actividades WHERE activo = true ORDER BY nombre ASC',
+    )
+    return res.status(200).json({ success: true, actividades })
+  } catch (error) {
+    logger.error(error)
+    return res.status(400).json({
+      error: error.message,
+    })
+  }
+}
+
 exports.getActividadById = async (req, res) => {
   const user = await validateUserFromToken(req, res)
   if (!user) {
